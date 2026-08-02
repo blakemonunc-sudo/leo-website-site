@@ -1,0 +1,9 @@
+# Copy to .dev.vars and fill in values (never commit .dev.vars).
+# Wrangler loads this automatically for `wrangler dev`.
+#
+# Production:
+#   npx wrangler secret put LEO_WEBSITE_API_SECRET
+#   npx wrangler secret put CF_IMAGES_HASH
+
+LEO_WEBSITE_API_SECRET=
+CF_IMAGES_HASH=

@@ -1,0 +1,24 @@
+name = "leo-website-site"
+main = "src/index.js"
+compatibility_date = "2026-02-11"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+
+[vars]
+CF_IMAGES_VARIANT = "public"
+
+# Worker-to-worker call to the delivery API via service binding (avoids
+# Cloudflare error 1042 from fetching a same-account workers.dev URL).
+[[services]]
+binding = "RUNTIME_API"
+service = "leo-website-content-runtime-api"
+
+# Secrets (never commit):
+#   npx wrangler secret put LEO_WEBSITE_API_SECRET
+#   npx wrangler secret put CF_IMAGES_HASH
+#
+# Local dev: copy .dev.vars.example to .dev.vars
