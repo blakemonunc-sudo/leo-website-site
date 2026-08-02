@@ -320,7 +320,7 @@ p {
   gap: clamp(12px, 2.5vw, 20px);
   width: 100%;
   padding: 14px clamp(16px, 4vw, 48px);
-  background: var(--cream-bar);
+  background: transparent;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   isolation: isolate;
@@ -329,8 +329,8 @@ p {
 .hero-city-label {
   flex: 0 0 auto;
   font-family: var(--font-display);
-  font-size: clamp(15px, 2vw, 18px);
-  color: var(--muted);
+  font-size: clamp(20px, 2.8vw, 28px);
+  color: var(--leo-gray-dark);
   white-space: nowrap;
 }
 
@@ -349,8 +349,8 @@ p {
   padding: 2px 0;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(16px, 2.2vw, 20px);
-  color: var(--ink);
+  font-size: clamp(20px, 2.8vw, 28px);
+  color: var(--leo-gray-dark);
   cursor: pointer;
   line-height: 1.2;
   border-bottom: 2px solid transparent;
@@ -408,10 +408,64 @@ p {
   border-bottom: 0.5px solid var(--leo-gray);
 }
 
+.band-toggle {
+  position: absolute;
+  top: clamp(6px, 1vw, 12px);
+  right: clamp(10px, 2.5vw, 36px);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: clamp(28px, 3.6vw, 36px);
+  height: clamp(28px, 3.6vw, 36px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--leo-gray-dark);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.band-toggle:focus-visible {
+  outline: 2px solid var(--leo-gray-dark);
+  outline-offset: 2px;
+}
+
+.band-toggle-icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.band-toggle-icon::before,
+.band-toggle-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.band-toggle-icon::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.hero-band--period.is-expanded .band-toggle-icon::after {
+  opacity: 0;
+}
+
 .hero-band--period.is-expanded {
   flex: 1 0 auto;
   z-index: 1;
   overflow: visible; /* allow card shadow after settle */
+  cursor: default;
 }
 
 .hero-band--period.is-flipping {
@@ -1470,3 +1524,11 @@ p {
 /* card-chrome-1 */
 
 /* card-radius-1 */
+
+/* day-subtitle-1 */
+
+/* day-label-1 */
+
+/* today-label-1 */
+
+/* band-toggle-1 */

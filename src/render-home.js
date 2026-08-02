@@ -198,6 +198,9 @@ function renderPeriodBand(period, i) {
       aria-expanded="false"
       aria-label="${escapeHtml(period.metaLine)}"
     >
+      <button type="button" class="band-toggle" aria-label="Expand period">
+        <span class="band-toggle-icon" aria-hidden="true"></span>
+      </button>
       <div class="band-inner">
         ${renderBandMeta(period)}
         <div class="band-frame">
@@ -250,8 +253,8 @@ function renderCitySwitcher(cities, selectedId) {
     .join("");
 
   return `
-    <div class="hero-city-switcher" role="tablist" aria-label="Today in city">
-      <span class="hero-city-label" id="hero-city-label">Today in:</span>
+    <div class="hero-city-switcher" role="tablist" aria-label="Today">
+      <span class="hero-city-label" id="hero-city-label">Today:</span>
       <div class="hero-city-options">${buttons}</div>
     </div>`;
 }
@@ -290,7 +293,7 @@ export function renderHomePage(packResults = null) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=card-radius-1">
+  <link rel="stylesheet" href="/home/home.css?v=band-toggle-1">
 </head>
 <body>
   <header class="site-nav" id="site-nav">
@@ -543,7 +546,7 @@ export function renderHomePage(packResults = null) {
     </div>
   </footer>
 
-  <script src="/home/home.js?v=flip-collapse-1" defer></script>
+  <script src="/home/home.js?v=band-toggle-1" defer></script>
 </body>
 </html>`;
 }

@@ -310,6 +310,7 @@ test("renderHomePage uses expandable period bands, not carousel", () => {
   assert.match(html, /band-meta/);
   assert.match(html, /band-meta-period/);
   assert.match(html, /band-meta-weather/);
+  assert.match(html, /band-toggle/);
   assert.match(html, /band-inner/);
   assert.match(html, /band-meta-period">Shinjuku Gyoen</);
   assert.match(html, /band-meta-weather">☀️ 84°F \| Morning</);
@@ -375,19 +376,14 @@ test("renderHomePage includes city switcher for published cities", () => {
       },
       error: null,
     },
-    {
-      city: { webCityId: "nyc", name: "NYC" },
-      pack: null,
-      error: null,
-    },
   ]);
 
-  assert.match(html, /Today in:/);
+  assert.match(html, /hero-city-label">Today:</);
   assert.match(html, /hero-city-switcher/);
   assert.match(html, /hero-city-btn/);
   assert.match(html, /data-city="tokyo"/);
   assert.match(html, /data-city="paris"/);
-  assert.match(html, /data-city="nyc"/);
+  assert.doesNotMatch(html, /data-city="nyc"/);
   assert.match(html, /aria-selected="true"[^>]*>Tokyo</);
   assert.match(html, /hero-periods"[^>]*data-city="tokyo"/);
   assert.match(html, /Shinjuku Gyoen/);

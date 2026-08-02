@@ -1,6 +1,5 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   /* —— Nav fade + mobile drawer —— */
   const nav = document.getElementById("site-nav");
@@ -45,15 +44,35 @@
     band.classList.toggle("is-expanded", open);
     band.setAttribute("aria-expanded", String(open));
     bandIntent.set(band, open);
+    const toggle = band.querySelector(".band-toggle");
+    if (toggle) {
+      toggle.setAttribute("aria-label", open ? "Collapse period" : "Expand period");
+    }
+  }
+
+  function isBandOpen(band) {
+    if (!band) return false;
+    return bandIntent.has(band)
+      ? bandIntent.get(band)
+      : band.classList.contains("is-expanded");
   }
 
   function collapseBandsIn(root, { animate = false, except = null } = {}) {
     if (!root) return;
-    root.querySelectorAll(".hero-band--period.is-expanded").forEach((band) => {
+    root.querySelectorAll(".hero-band--period").forEach((band) => {
       if (except && band === except) return;
+      if (!isBandOpen(band)) return;
       if (animate) flipBand(band, false);
       else setExpanded(band, false);
     });
+  }
+
+  function expandBand(band) {
+    if (!band || !hero?.contains(band)) return;
+    const stack = band.closest(".hero-periods");
+    if (!stack || stack.hasAttribute("hidden")) return;
+    collapseBandsIn(hero, { animate: true, except: band });
+    flipBand(band, true);
   }
 
   /**
@@ -199,46 +218,44 @@
   }
 
   if (hero) {
-    const bands = () => [...hero.querySelectorAll(".hero-band--period")];
+    document.addEventListener("click", (e) => {
+      const band = e.target.closest(".hero-band--period");
+      const onToggle = Boolean(e.target.closest(".band-toggle"));
 
-    if (canHover) {
-      bands().forEach((band) => {
-        band.addEventListener("pointerenter", (e) => {
-          if (e.pointerType === "touch") return;
-          const stack = band.closest(".hero-periods");
-          collapseBandsIn(stack, { animate: true, except: band });
-          flipBand(band, true);
-        });
-        band.addEventListener("pointerleave", (e) => {
-          if (e.pointerType === "touch") return;
-          flipBand(band, false);
-        });
-      });
-    } else {
-      hero.addEventListener("click", (e) => {
-        const band = e.target.closest(".hero-band--period");
-        if (!band || !hero.contains(band)) return;
+      if (band && hero.contains(band)) {
         const stack = band.closest(".hero-periods");
         if (!stack || stack.hasAttribute("hidden")) return;
-        const open = !(bandIntent.has(band)
-          ? bandIntent.get(band)
-          : band.classList.contains("is-expanded"));
-        collapseBandsIn(stack, { animate: true, except: band });
-        flipBand(band, open);
-      });
-    }
+
+        if (onToggle) {
+          if (isBandOpen(band)) flipBand(band, false);
+          else expandBand(band);
+          return;
+        }
+
+        /* Collapsed band: click anywhere opens. Expanded body: stay open. */
+        if (!isBandOpen(band)) expandBand(band);
+        return;
+      }
+
+      /* Click/tap outside period bands collapses any open band. */
+      collapseBandsIn(hero, { animate: true });
+    });
 
     hero.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        collapseBandsIn(hero, { animate: true });
+        return;
+      }
       if (e.key !== "Enter" && e.key !== " ") return;
       const band = e.target.closest(".hero-band--period");
       if (!band || !hero.contains(band)) return;
       e.preventDefault();
-      const stack = band.closest(".hero-periods");
-      const open = !(bandIntent.has(band)
-        ? bandIntent.get(band)
-        : band.classList.contains("is-expanded"));
-      collapseBandsIn(stack, { animate: true, except: band });
-      flipBand(band, open);
+      if (e.target.closest(".band-toggle")) {
+        if (isBandOpen(band)) flipBand(band, false);
+        else expandBand(band);
+        return;
+      }
+      if (!isBandOpen(band)) expandBand(band);
     });
   }
 
@@ -388,3 +405,5 @@
     window.setTimeout(() => mapCluster.classList.add("is-animated"), 100);
   });
 })();
+
+/* band-toggle-1 */
