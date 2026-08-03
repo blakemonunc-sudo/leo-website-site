@@ -10,9 +10,21 @@ import {
 import {
   activityBandTitle,
   buildHeroPeriods,
+  formatHeroPeriodName,
   renderHomePage,
 } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
+
+test("formatHeroPeriodName keeps DayPeriod names and special-cases Coffee", () => {
+  assert.equal(formatHeroPeriodName("Morning", "09:00"), "Morning");
+  assert.equal(formatHeroPeriodName("Lunch", "12:00"), "Lunch");
+  assert.equal(formatHeroPeriodName("Coffee", "09:00"), "Morning Coffee");
+  assert.equal(formatHeroPeriodName("Coffee", "11:59"), "Morning Coffee");
+  assert.equal(formatHeroPeriodName("Coffee", "12:00"), "Afternoon Coffee");
+  assert.equal(formatHeroPeriodName("Coffee", "15:00"), "Afternoon Coffee");
+  assert.equal(formatHeroPeriodName("Coffee", null), "Coffee");
+  assert.equal(formatHeroPeriodName("Coffee", "bad"), "Coffee");
+});
 
 test("activityBandTitle formats by activity type", () => {
   assert.equal(
@@ -186,6 +198,7 @@ test("buildHeroPeriods maps Tokyo pack into period bands with avg temp + descrip
       {
         index: 2,
         label: "Clear · Lunch",
+        start: "12:00",
         tempMinC: 30,
         tempMaxC: 32,
         activity: {
@@ -199,6 +212,7 @@ test("buildHeroPeriods maps Tokyo pack into period bands with avg temp + descrip
       {
         index: 1,
         label: "Clear · Morning",
+        start: "09:00",
         tempMinC: 28,
         tempMaxC: 30,
         activity: {
@@ -213,6 +227,7 @@ test("buildHeroPeriods maps Tokyo pack into period bands with avg temp + descrip
       {
         index: 3,
         label: "Cloudy · Afternoon",
+        start: "13:00",
         tempMinC: 24,
         tempMaxC: 26,
         activity: {
@@ -258,6 +273,34 @@ test("buildHeroPeriods maps Tokyo pack into period bands with avg temp + descrip
   assert.match(periods[2].description, /Follow the Yamanote Line|Ride the JR Yamanote Line/);
 });
 
+test("buildHeroPeriods special-cases Coffee by start hour", () => {
+  const periods = buildHeroPeriods({
+    periods: [
+      {
+        index: 1,
+        label: "Clear · Coffee",
+        start: "10:00",
+        tempMinC: 20,
+        tempMaxC: 22,
+        activity: { type: "foodDrink", title: "Cafe", category: "Cafe" },
+      },
+      {
+        index: 2,
+        label: "Clear · Coffee",
+        start: "14:00",
+        tempMinC: 24,
+        tempMaxC: 26,
+        activity: { type: "foodDrink", title: "Cafe", category: "Cafe" },
+      },
+    ],
+  });
+
+  assert.equal(periods[0].periodName, "Morning Coffee");
+  assert.equal(periods[0].subtitle, "☀️ 70°F | Morning Coffee");
+  assert.equal(periods[1].periodName, "Afternoon Coffee");
+  assert.equal(periods[1].subtitle, "☀️ 77°F | Afternoon Coffee");
+});
+
 test("buildHeroPeriods falls back when pack has no periods", () => {
   const periods = buildHeroPeriods(null);
   assert.ok(periods.length >= 4);
@@ -275,6 +318,7 @@ test("renderHomePage uses expandable period bands, not carousel", () => {
       {
         index: 1,
         label: "Clear · Morning",
+        start: "09:00",
         tempMinC: 28,
         tempMaxC: 30,
         activity: {
@@ -289,6 +333,7 @@ test("renderHomePage uses expandable period bands, not carousel", () => {
       {
         index: 2,
         label: "Clear · Lunch",
+        start: "12:00",
         tempMinC: 30,
         tempMaxC: 32,
         activity: {
@@ -316,6 +361,7 @@ test("renderHomePage uses expandable period bands, not carousel", () => {
   assert.match(html, /band-meta-weather">☀️ 84°F \| Morning</);
   assert.match(html, /band-meta-period">Ramen</);
   assert.match(html, /band-meta-weather">☀️ 88°F \| Lunch</);
+  assert.doesNotMatch(html, /time-meridiem/);
   assert.match(html, /band-description/);
   assert.match(html, /Unwind at Shinjuku Gyoen/);
   assert.match(html, /calling-card/);

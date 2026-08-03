@@ -263,13 +263,22 @@ export function renderTodayPage(packResults) {
   <script>
     const tabs = document.querySelectorAll(".tab");
     const panels = document.querySelectorAll(".city-panel");
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const city = tab.dataset.city;
-        tabs.forEach((t) => t.classList.toggle("active", t === tab));
-        panels.forEach((p) => p.hidden = p.dataset.city !== city);
+    function selectCity(city) {
+      if (!city) return;
+      let matched = false;
+      tabs.forEach((t) => {
+        const on = t.dataset.city === city;
+        t.classList.toggle("active", on);
+        if (on) matched = true;
       });
+      if (!matched) return;
+      panels.forEach((p) => { p.hidden = p.dataset.city !== city; });
+    }
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => selectCity(tab.dataset.city));
     });
+    const fromQuery = new URLSearchParams(location.search).get("city");
+    if (fromQuery) selectCity(fromQuery);
   </script>
 </body>
 </html>`;

@@ -26,6 +26,7 @@ const FALLBACK_PERIODS = [
   {
     index: 1,
     label: "Clear · Morning",
+    start: "09:00",
     tempMinC: 28,
     tempMaxC: 30,
     activity: {
@@ -42,6 +43,7 @@ const FALLBACK_PERIODS = [
   {
     index: 2,
     label: "Clear · Lunch",
+    start: "12:00",
     tempMinC: 30,
     tempMaxC: 32,
     activity: {
@@ -55,6 +57,7 @@ const FALLBACK_PERIODS = [
   {
     index: 3,
     label: "Clear · Afternoon",
+    start: "13:00",
     tempMinC: 31,
     tempMaxC: 33,
     activity: {
@@ -70,6 +73,7 @@ const FALLBACK_PERIODS = [
   {
     index: 4,
     label: "Clear · Evening",
+    start: "16:00",
     tempMinC: 27,
     tempMaxC: 29,
     activity: {
@@ -86,6 +90,7 @@ const FALLBACK_PERIODS = [
   {
     index: 5,
     label: "Clear · Drinks",
+    start: "21:00",
     tempMinC: 25,
     tempMaxC: 27,
     activity: {
@@ -97,6 +102,76 @@ const FALLBACK_PERIODS = [
     },
   },
 ];
+
+/** Parse pack period.start ("HH:MM") as a 24-hour hour integer. */
+function parseStartHour24(start) {
+  const match = String(start ?? "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour24 = Number(match[1]);
+  if (!Number.isInteger(hour24) || hour24 < 0 || hour24 > 23) return null;
+  return hour24;
+}
+
+/**
+ * Display name for a DayPeriod in hero weather meta.
+ * Coffee → Morning Coffee (start before noon) / Afternoon Coffee (noon or later).
+ */
+export function formatHeroPeriodName(periodName, start) {
+  const name = String(periodName ?? "").trim();
+  if (name !== "Coffee") return name;
+  const hour = parseStartHour24(start);
+  if (hour == null) return "Coffee";
+  return hour < 12 ? "Morning Coffee" : "Afternoon Coffee";
+}
+
+/** LeoMagic face paths from LeoSymbolSF / LeoSymbolSF.heart (Regular, SF Symbol local coords). */
+const LEO_MAGIC_FACE_SMILE =
+  "M33.907-8.345C36.905-7.759 39.545-7.006 47.923-8.216C54.453-9.159 59.622-9.797 65.647-13.285L65.646-13.285C67.743-14.649 69.65-12.116 68.594-10.556C67.965-9.627 59.759-2.759 51.73-1.229C43.011 0.432 32.656-4.072 31.631-5.034C30.818-5.797 30.495-9.042 33.912-8.343L33.907-8.345ZM49.278-23.034C52.357-23.868 53.134-19.727 50.066-18.963C39.988-16.453 33.534-23.479 38.46-36.031L38.455-36.033C42.542-50.042 44.923-52.25 47.906-68.178C48.55-71.616 52.077-70.1 52.021-68.211C51.296-43.758 44.262-32.408 43.202-29.257C40.693-21.801 48.588-22.936 49.277-23.035L49.277-23.034ZM49.275-23.033L49.275-23.033ZM29.6-45.365C29.107-45.659 24.628-50.713 22.165-50.332C18.683-49.794 15.805-44.924 8.893-44.747C6.716-44.691 5.664-48.475 8.824-48.844C8.824-48.844 9.712-49.019 10.567-49.713C15.225-53.491 16.358-60.227 25.179-56.939C29.221-55.433 33.06-47.839 33.109-46.957C33.261-44.204 30.471-44.845 29.6-45.366ZM62.44-45.365C62.968-45.659 67.768-50.713 70.408-50.332C74.14-49.794 77.224-44.924 84.631-44.747C86.964-44.691 88.091-48.475 84.705-48.844C84.705-48.844 83.753-49.019 82.837-49.713C77.845-53.491 76.631-60.227 67.178-56.939C62.847-55.433 58.732-47.839 58.68-46.957C58.517-44.204 61.507-44.845 62.44-45.366Z";
+
+const LEO_MAGIC_FACE_HEART =
+  "M33.907-8.345C36.905-7.759 39.545-7.006 47.923-8.216C54.453-9.159 59.622-9.797 65.647-13.285L65.646-13.285C67.743-14.649 69.65-12.116 68.594-10.556C67.965-9.627 59.759-2.759 51.73-1.229C43.011 0.432 32.656-4.072 31.631-5.034C30.818-5.797 30.495-9.042 33.912-8.343L33.907-8.345ZM49.278-23.034C52.357-23.868 53.134-19.727 50.066-18.963C39.988-16.453 33.534-23.479 38.46-36.031L38.455-36.033C42.542-50.042 44.923-52.25 47.906-68.178C48.55-71.616 52.077-70.1 52.021-68.211C51.296-43.758 44.262-32.408 43.202-29.257C40.693-21.801 48.588-22.936 49.277-23.035L49.277-23.034L49.278-23.034ZM21.744-37.38C21.923-37.38 22.127-37.473 22.29-37.566C29.236-42.189 34.244-47.405 34.244-52.724C34.244-56.982 31.288-60.056 27.336-60.056C25.022-60.056 22.776-58.693 21.744-56.569C20.713-58.692 18.465-60.056 16.152-60.056C12.201-60.056 9.244-56.982 9.244-52.724C9.244-47.405 14.236-42.19 21.198-37.566C21.345-37.473 21.567-37.38 21.744-37.38ZM71.178-37.38C71.357-37.38 71.561-37.473 71.724-37.566C78.67-42.189 83.678-47.405 83.678-52.724C83.678-56.982 80.722-60.056 76.77-60.056C74.456-60.056 72.21-58.693 71.178-56.569C70.147-58.692 67.899-60.056 65.586-60.056C61.635-60.056 58.678-56.982 58.678-52.724C58.678-47.405 63.67-42.19 70.632-37.566C70.779-37.473 71.001-37.38 71.178-37.38Z";
+
+/**
+ * AdvView LeoMagicIndicatorView proportions (buttonWidth = size):
+ * - stroke = 3 (absolute; SwiftUI lineWidth: 3)
+ * - ring path diameter = size - 3 (SwiftUI .frame(buttonWidth - 3))
+ * - face = size * 0.55 (scaledToFit in square)
+ * - progress rotated −90°, round line caps
+ * - heart when fillPercentage > 0.75; else smile
+ * AdvView uses buttonWidth 36 → stroke/size = 3/36, face/size = 0.55.
+ */
+function renderLeoMagicIndicator({
+  id = null,
+  pct = 0,
+  size = 36,
+  className = "leo-magic",
+} = {}) {
+  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+  const useHeart = clamped > 75;
+  const stroke = 3;
+  const ring = size - stroke;
+  const r = ring / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const face = size * 0.55;
+  const faceX = (size - face) / 2;
+  const faceY = (size - face) / 2;
+  const idAttr = id ? ` id="${id}"` : "";
+  const progressId = id ? ` id="${id}-progress"` : "";
+  const smileId = id ? ` id="${id}-smile"` : "";
+  const heartId = id ? ` id="${id}-heart"` : "";
+
+  return `<div class="${className}"${idAttr} data-pct="${clamped}" style="--leo-magic-size:${size}px" aria-hidden="true">
+  <svg class="leo-magic-svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+    <circle class="leo-magic-track" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke-width="${stroke}" />
+    <circle class="leo-magic-progress"${progressId} cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke-width="${stroke}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})" pathLength="100" stroke-dasharray="${clamped} 100" />
+    <svg class="leo-magic-face" x="${faceX}" y="${faceY}" width="${face}" height="${face}" viewBox="0 -70.5 92.53 70.5" overflow="visible" preserveAspectRatio="xMidYMid meet">
+      <path class="leo-magic-face-smile"${smileId} d="${LEO_MAGIC_FACE_SMILE}" fill="currentColor"${useHeart ? " hidden" : ""} />
+      <path class="leo-magic-face-heart"${heartId} d="${LEO_MAGIC_FACE_HEART}" fill="currentColor"${useHeart ? "" : " hidden"} />
+    </svg>
+  </svg>
+</div>`;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -137,7 +212,9 @@ export function buildHeroPeriods(pack) {
     const { condition, periodName } = parsePeriodLabel(period.label);
     const activity = period.activity ?? {};
     const symbol = CONDITION_SYMBOLS[condition] ?? "🌤️";
-    const name = periodName || `Period ${period.index ?? i + 1}`;
+    const name =
+      formatHeroPeriodName(periodName, period.start) ||
+      `Period ${period.index ?? i + 1}`;
     const avgTempLabel = formatAvgTemp(period.tempMinC, period.tempMaxC);
     const weatherLine = [symbol, avgTempLabel].filter(Boolean).join(" ");
     const title = activityBandTitle(activity) || name;
@@ -170,11 +247,15 @@ function renderPhoto(period, eager) {
   return `<div class="band-photo-img phatch" aria-hidden="true"></div>`;
 }
 
+function renderBandMetaWeather(period) {
+  return escapeHtml(period.subtitle || "");
+}
+
 function renderBandMeta(period) {
   return `
         <div class="band-meta">
           <p class="band-meta-period">${escapeHtml(period.title)}</p>
-          <p class="band-meta-weather">${escapeHtml(period.subtitle || "")}</p>
+          <p class="band-meta-weather">${renderBandMetaWeather(period)}</p>
         </div>`;
 }
 
@@ -274,6 +355,28 @@ function renderCityPeriods(city, pack, isSelected) {
     </div>`;
 }
 
+function renderHeroCtaBand(city) {
+  const name = city?.name ?? "Tokyo";
+  const id = city?.webCityId ?? "tokyo";
+  return `
+    <nav class="hero-cta-band" aria-label="Explore and customize">
+      <a
+        class="hero-cta-link"
+        id="hero-explore"
+        href="/today?city=${escapeHtml(id)}"
+        data-city="${escapeHtml(id)}"
+      >
+        <span class="hero-cta-label">Explore <span id="hero-explore-city">${escapeHtml(name)}</span></span>
+        <span class="hero-cta-arrow" aria-hidden="true">→</span>
+      </a>
+      <span class="hero-cta-divider" aria-hidden="true"></span>
+      <span class="hero-cta-link hero-cta-link--inert" id="hero-customize" aria-disabled="true">
+        <span class="hero-cta-label">Customize</span>
+        <span class="hero-cta-arrow" aria-hidden="true">↗</span>
+      </span>
+    </nav>`;
+}
+
 /**
  * Marketing homepage (wireframe 2a).
  * Hero: intro band + city switcher + expandable period bands per published city.
@@ -282,6 +385,7 @@ function renderCityPeriods(city, pack, isSelected) {
 export function renderHomePage(packResults = null) {
   const results = resolveCityPacks(packResults);
   const defaultCityId = results[0]?.city?.webCityId ?? "tokyo";
+  const defaultCity = results[0]?.city ?? { webCityId: "tokyo", name: "Tokyo" };
   const cities = results.map((r) => r.city);
   const periodsMarkup = results
     .map((r) => renderCityPeriods(r.city, r.pack, r.city.webCityId === defaultCityId))
@@ -293,7 +397,7 @@ export function renderHomePage(packResults = null) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=band-toggle-1">
+  <link rel="stylesheet" href="/home/home.css?v=period-names-1">
 </head>
 <body>
   <header class="site-nav" id="site-nav">
@@ -326,10 +430,7 @@ export function renderHomePage(packResults = null) {
 
     ${renderCitySwitcher(cities, defaultCityId)}
     ${periodsMarkup}
-  </section>
-
-  <section class="story-break">
-    <p>Timing is everything while traveling. Going at the right time feels magical. <strong>Leo helps you find the magic in every moment.</strong></p>
+    ${renderHeroCtaBand(defaultCity)}
   </section>
 
   <section class="feature feature--light" id="feature-01" data-animate="grid">
@@ -338,74 +439,92 @@ export function renderHomePage(packResults = null) {
       <p>Leo is built on an exclusive collection of activities. None of our activities require a reservation and most have no lines. No reservations means less stress.</p>
       <a class="btn-pill btn-pill--outline" href="#">Try Leo</a>
     </div>
-    <div class="feature-visual">
-      <div class="photo-grid" id="photo-grid">
-        ${Array.from({ length: 12 }, () => '<div class="photo-grid-cell"></div>').join("")}
+    <div class="feature-media">
+      <div class="map-scene" id="photo-grid" aria-hidden="true">
+        <div class="map-surface"></div>
+        <div class="map-pin" style="--pin-x: 16%; --pin-y: 30%; --pin-rot: -6deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 42%; --pin-y: 18%; --pin-rot: 4deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 72%; --pin-y: 22%; --pin-rot: -3deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 88%; --pin-y: 48%; --pin-rot: 5deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 28%; --pin-y: 58%; --pin-rot: -4deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 58%; --pin-y: 68%; --pin-rot: 3deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
+        <div class="map-pin" style="--pin-x: 78%; --pin-y: 78%; --pin-rot: -5deg;">
+          <div class="map-pin-card phatch"></div>
+          <span class="map-pin-dot"></span>
+        </div>
       </div>
+      <button type="button" class="feature-replay">Replay</button>
     </div>
   </section>
 
   <section class="feature feature--cream feature--reverse" id="feature-02" data-animate="match">
     <div class="feature-copy">
-      <h2>Go when the conditions are right.</h2>
+      <h2>Go when the<br>conditions are right.</h2>
       <p>Tell Leo when you want to leave and he shows you activities that match the moment. He considers weather, open hours, and distance. The more Leo's smiling, the better the match.</p>
       <a class="btn-pill btn-pill--outline" href="#">Try Leo</a>
     </div>
-    <div class="feature-visual">
-      <div class="match-card" id="match-card">
-        <div class="match-bars">
-          <div class="match-row">
-            <span class="match-icon" aria-hidden="true">◐</span>
-            <div class="match-track"><div class="match-fill" data-fill="100"></div></div>
+    <div class="feature-media">
+      <div class="feature-visual match-visual">
+        <div class="match-face-card">
+          ${renderLeoMagicIndicator({ id: "match-smiley", pct: 0, size: 120, className: "leo-magic match-smiley" })}
+        </div>
+        <div class="match-card" id="match-card">
+          <div class="match-header">
+            <div class="match-title">Marché des Enfants Rouges</div>
+            <div class="match-time">9:00 – 10:15</div>
           </div>
-          <div class="match-row">
-            <span class="match-icon" aria-hidden="true">⛅</span>
-            <div class="match-track"><div class="match-fill" data-fill="70"></div></div>
-          </div>
-          <div class="match-row">
-            <span class="match-icon" aria-hidden="true">◎</span>
-            <div class="match-track"><div class="match-fill" data-fill="80"></div></div>
+          <div class="match-bars">
+            <div class="match-row">
+              <span class="match-icon" aria-hidden="true">⏱️</span>
+              <div class="match-track"><div class="match-fill" data-fill="100"></div></div>
+            </div>
+            <div class="match-row">
+              <span class="match-icon" aria-hidden="true">🌤️</span>
+              <div class="match-track"><div class="match-fill" data-fill="70"></div></div>
+            </div>
+            <div class="match-row">
+              <span class="match-icon" aria-hidden="true">🚌</span>
+              <div class="match-track"><div class="match-fill" data-fill="80"></div></div>
+            </div>
           </div>
         </div>
-        <div class="match-smiley" id="match-smiley" data-pct="0">
-          <div class="match-smiley-inner" id="match-smiley-face">☹</div>
-        </div>
       </div>
-      <div class="match-steps" aria-hidden="true">
-        <div class="match-step"><div class="mini-ring" style="--deg:108deg"><span>☹</span></div><span>30%</span></div>
-        <span class="match-arrow">→</span>
-        <div class="match-step"><div class="mini-ring" style="--deg:234deg"><span>☺</span></div><span>65%</span></div>
-        <span class="match-arrow">→</span>
-        <div class="match-step"><div class="mini-ring" style="--deg:306deg"><span>♥‿♥</span></div><span>85%</span></div>
-      </div>
+      <button type="button" class="feature-replay">Replay</button>
     </div>
   </section>
 
   <section class="feature feature--light" id="feature-03" data-animate="chips">
     <div class="feature-copy">
-      <h2>One decision at a time. No planning fatigue.</h2>
+      <h2>One decision at a time.<br>No planning fatigue.</h2>
       <p>In travel, less is more fun. Plan your day one step at a time, not all at once. Choose from a few excellent options, not hundreds of mediocre options.</p>
       <a class="btn-pill btn-pill--outline" href="#">Try Leo</a>
     </div>
-    <div class="feature-visual">
-      <div class="chip-builder" id="chip-builder">
-        <div class="chip-expanded is-hidden" id="chip-expanded">
-          <div class="chip-thumb phatch"></div>
-          <div class="chip-title">Marché des Enfants Rouges</div>
-          <div class="chip-times"><span>9:00</span><span>10:15</span></div>
+    <div class="feature-media">
+      <div class="feature-visual">
+        <div class="chip-builder" id="chip-builder" aria-hidden="true">
+          <div class="chip-stack"></div>
+          <div class="chip-stage"></div>
         </div>
-        <div class="chip-row" id="chip-row-1">
-          <div class="chip-option phatch"></div>
-          <div class="chip-option phatch"></div>
-          <div class="chip-option phatch"></div>
-        </div>
-        <div class="chip-row is-hidden" id="chip-row-2">
-          <div class="chip-option phatch"></div>
-          <div class="chip-option phatch"></div>
-          <div class="chip-option phatch"></div>
-        </div>
-        <div class="chip-placeholder is-hidden" id="chip-placeholder">activity 3 · not yet shown</div>
       </div>
+      <button type="button" class="feature-replay">Replay</button>
     </div>
   </section>
 
@@ -415,23 +534,26 @@ export function renderHomePage(packResults = null) {
       <p>You shouldn't need a PhD to find a lunch spot. Every activity includes helpful stats, a short background story, and recommendations for what to focus on. No research needed.</p>
       <a class="btn-pill btn-pill--outline" href="#">Try Leo</a>
     </div>
-    <div class="feature-visual">
-      <div class="map-cluster" id="map-cluster">
-        <div class="open-pill">Open til 7pm</div>
-        <div class="map-card">
-          <svg class="map-svg" viewBox="0 0 132 132" aria-hidden="true">
-            <path id="map-path" class="map-path" d="M24,104 L24,54 L64,54 L64,74 L100,74" fill="none" stroke="#3269D9" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round"/>
-            <g class="map-stop" data-stop="1"><circle cx="24" cy="104" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="24" y="104" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">1</text></g>
-            <g class="map-stop" data-stop="2"><circle cx="64" cy="54" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="64" y="54" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">2</text></g>
-            <g class="map-stop" data-stop="3"><circle cx="100" cy="74" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="100" y="74" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">3</text></g>
-          </svg>
-        </div>
-        <div class="activity-card">
-          <div class="activity-card-photo phatch"></div>
-          <div class="activity-card-stats"><span>Free</span><span>|</span><span>2.5h</span><span>|</span><span>Inside</span></div>
-          <div class="activity-card-copy">A covered market with 30+ stalls…</div>
+    <div class="feature-media">
+      <div class="feature-visual">
+        <div class="map-cluster" id="map-cluster">
+          <div class="open-pill">Open til 7pm</div>
+          <div class="map-card">
+            <svg class="map-svg" viewBox="0 0 132 132" aria-hidden="true">
+              <path id="map-path" class="map-path" d="M24,104 L24,54 L64,54 L64,74 L100,74" fill="none" stroke="#3269D9" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round"/>
+              <g class="map-stop" data-stop="1"><circle cx="24" cy="104" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="24" y="104" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">1</text></g>
+              <g class="map-stop" data-stop="2"><circle cx="64" cy="54" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="64" y="54" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">2</text></g>
+              <g class="map-stop" data-stop="3"><circle cx="100" cy="74" r="7" fill="#3269D9" stroke="#fff" stroke-width="1.5"/><text x="100" y="74" text-anchor="middle" dy="3.2" font-size="8" fill="#fff">3</text></g>
+            </svg>
+          </div>
+          <div class="activity-card">
+            <div class="activity-card-photo phatch"></div>
+            <div class="activity-card-stats"><span>Free</span><span>|</span><span>2.5h</span><span>|</span><span>Inside</span></div>
+            <div class="activity-card-copy">A covered market with 30+ stalls…</div>
+          </div>
         </div>
       </div>
+      <button type="button" class="feature-replay">Replay</button>
     </div>
   </section>
 
@@ -546,7 +668,7 @@ export function renderHomePage(packResults = null) {
     </div>
   </footer>
 
-  <script src="/home/home.js?v=band-toggle-1" defer></script>
+  <script src="/home/home.js?v=feature-replay-1" defer></script>
 </body>
 </html>`;
 }
