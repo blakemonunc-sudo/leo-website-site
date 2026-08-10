@@ -208,7 +208,7 @@
     });
     const selectedBtn = cityButtons.find((btn) => btn.dataset.city === cityId);
     if (exploreLink) {
-      exploreLink.href = `/today?city=${encodeURIComponent(cityId)}`;
+      exploreLink.href = `/what-to-do-in-${encodeURIComponent(cityId)}-today`;
       exploreLink.dataset.city = cityId;
     }
     if (exploreCity && selectedBtn) {

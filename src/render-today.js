@@ -1,14 +1,7 @@
 import { buildHeroProxyPath } from "./images.js";
 
-const CONDITION_SYMBOLS = {
-  Clear: "☀️",
-  "Partly Cloudy": "⛅",
-  Cloudy: "☁️",
-  Overcast: "☁️",
-  Showery: "🌦️",
-  Rainy: "🌧️",
-  Stormy: "⛈️",
-};
+export const APP_STORE_URL =
+  "https://apps.apple.com/us/app/leo-spontaneous-travel-guide/id6755015197";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -104,7 +97,104 @@ export function buildActivityCopy(activity, period) {
   return "";
 }
 
-function renderHero(cityId, period, activity) {
+export function normalizeWebsiteUrl(website) {
+  if (typeof website !== "string") return null;
+  const trimmed = website.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function formatUpdatedAt(generatedAt, timeZone) {
+  if (!generatedAt || !timeZone) return "";
+  const date = new Date(generatedAt);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).formatToParts(date);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  const month = get("month");
+  const day = get("day");
+  const year = get("year");
+  const hour = get("hour");
+  const minute = get("minute");
+  const dayPeriod = get("dayPeriod");
+  const tmz = get("timeZoneName");
+  if (!month || !day || !year || !hour || !minute || !dayPeriod) return "";
+  return `Updated ${month} ${day}, ${year} at ${hour}:${minute} ${dayPeriod}${tmz ? ` ${tmz}` : ""}`;
+}
+
+export function buildPeriodHeader(period, activity) {
+  const { periodName } = parsePeriodLabel(period?.label);
+  const dayPeriod = periodName || "Today";
+  if (!activity) return dayPeriod;
+
+  if (activity.type === "sight") {
+    const connector = activity.dayPeriodConnector?.trim() || "at";
+    const place = activity.place?.trim() || activity.title?.trim() || "";
+    return place ? `${dayPeriod} ${connector} ${place}` : dayPeriod;
+  }
+  if (activity.type === "sideQuest") {
+    return `${dayPeriod} Side Quest!`;
+  }
+  if (activity.type === "foodDrink") {
+    const name = activity.title?.trim() || "";
+    return name ? `${dayPeriod} at ${name}` : dayPeriod;
+  }
+  return dayPeriod;
+}
+
+export function activityDescription(activity) {
+  if (!activity) return "";
+  if (activity.type === "foodDrink") return activity.description?.trim() ?? "";
+  return activity.whyGo?.trim() ?? "";
+}
+
+function formatCoordinateLabel(lat, lon) {
+  const format = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return null;
+    return String(Number(num.toFixed(5)));
+  };
+  const latStr = format(lat);
+  const lonStr = format(lon);
+  if (latStr == null || lonStr == null) return null;
+  return `${latStr}, ${lonStr}`;
+}
+
+function renderStats(activity) {
+  const rows = [
+    `<li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Explore in the app →</a></li>`,
+  ];
+
+  const coordLabel = formatCoordinateLabel(activity?.latitude, activity?.longitude);
+  if (coordLabel) {
+    const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(`${activity.latitude},${activity.longitude}`)}`;
+    rows.push(
+      `<li><a href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">${escapeHtml(coordLabel)} →</a></li>`
+    );
+  }
+
+  const website = normalizeWebsiteUrl(activity?.website);
+  if (website) {
+    rows.push(
+      `<li><a href="${escapeHtml(website)}" rel="noopener noreferrer">Visit website →</a></li>`
+    );
+  }
+
+  return `<ul class="stats">${rows.join("")}</ul>`;
+}
+
+function renderHero(activity) {
   const proxyPath = buildHeroProxyPath(activity?.heroImage);
   if (proxyPath) {
     return `<img class="hero" src="${escapeHtml(proxyPath)}" alt="" loading="lazy">`;
@@ -112,72 +202,81 @@ function renderHero(cityId, period, activity) {
   return `<div class="hero hero-placeholder" aria-hidden="true"></div>`;
 }
 
-function renderPeriod(cityId, period) {
-  const { condition, periodName } = parsePeriodLabel(period.label);
-  const symbol = CONDITION_SYMBOLS[condition] ?? "🌤️";
-  const tempRange = formatTempRange(period.tempMinC, period.tempMaxC);
-  const titleParts = [symbol, tempRange, periodName].filter(Boolean);
+function renderCaption(activity) {
+  const caption = activity?.imageCaption?.trim();
+  if (!caption) return "";
+  const sourceUrl = normalizeWebsiteUrl(activity.imageSourceWebsite);
+  if (sourceUrl) {
+    return `<p class="image-caption"><a href="${escapeHtml(sourceUrl)}" rel="noopener noreferrer">${escapeHtml(caption)}</a></p>`;
+  }
+  return `<p class="image-caption">${escapeHtml(caption)}</p>`;
+}
+
+function renderPeriod(period) {
   const activity = period.activity;
-  const copy = activity ? buildActivityCopy(activity, period) : "";
+  if (!activity) {
+    return `
+    <section class="period">
+      <hr class="period-divider">
+      <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, null))}</h2>
+      <p class="muted">No activity scheduled</p>
+    </section>`;
+  }
+
+  const whyNow = activity.whyTeaser?.trim();
+  const priceRange = activity.priceRange?.trim() || "—";
+  const description = activityDescription(activity);
 
   return `
     <section class="period">
-      <h3 class="period-title">${escapeHtml(titleParts.join(" "))}</h3>
-      ${renderHero(cityId, period, activity)}
-      ${
-        activity
-          ? `<p class="activity-copy">${escapeHtml(copy)}</p>`
-          : `<p class="activity-copy muted">No activity scheduled</p>`
-      }
+      <hr class="period-divider">
+      <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
+      ${whyNow ? `<p class="why-now">Why now: ${escapeHtml(whyNow)}</p>` : ""}
+      <p class="price-range">Price range: ${escapeHtml(priceRange)}</p>
+      ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
+      ${renderStats(activity)}
+      ${renderHero(activity)}
+      ${renderCaption(activity)}
     </section>`;
 }
 
-function renderCityPanel(city, pack, error, isActive) {
-  const cityId = city.webCityId;
-  const hidden = isActive ? "" : ' hidden';
-
-  if (error) {
-    return `
-      <section class="city-panel" data-city="${escapeHtml(cityId)}"${hidden}>
-        <p class="error">Could not load plan for ${escapeHtml(city.name)}: ${escapeHtml(error)}</p>
-      </section>`;
-  }
-
-  if (!pack) {
-    return `
-      <section class="city-panel" data-city="${escapeHtml(cityId)}"${hidden}>
-        <p class="muted">No plan available for ${escapeHtml(city.name)} yet.</p>
-      </section>`;
-  }
-
-  const periods = [...(pack.periods ?? [])].sort((a, b) => a.index - b.index);
-  const periodHtml = periods.map((period) => renderPeriod(cityId, period)).join("");
-
-  return `
-    <section class="city-panel" data-city="${escapeHtml(cityId)}"${hidden}>
-      <p class="meta">${escapeHtml(city.name)} · ${escapeHtml(pack.localDate ?? "")}</p>
-      ${periodHtml}
-    </section>`;
-}
-
+/**
+ * @deprecated Multi-city tab page replaced by per-city pages. Kept for tests that still call it.
+ */
 export function renderTodayPage(packResults) {
-  const tabs = packResults
-    .map(({ city }, i) => {
-      const active = i === 0 ? " active" : "";
-      return `<button type="button" class="tab${active}" data-city="${escapeHtml(city.webCityId)}">${escapeHtml(city.name)}</button>`;
-    })
-    .join("");
+  const first = packResults?.[0];
+  if (!first) {
+    return renderCityTodayPage({
+      city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+      pack: null,
+      error: "No cities configured",
+    });
+  }
+  return renderCityTodayPage(first);
+}
 
-  const panels = packResults
-    .map(({ city, pack, error }, i) => renderCityPanel(city, pack, error, i === 0))
-    .join("");
+export function renderCityTodayPage({ city, pack, error }) {
+  const cityName = city?.name ?? "City";
+  const title = `What to do in ${cityName} Today`;
+  const updated = formatUpdatedAt(pack?.generatedAt, city?.timezone);
+  const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for each period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
+
+  let body;
+  if (error) {
+    body = `<p class="error">Could not load plan for ${escapeHtml(cityName)}: ${escapeHtml(error)}</p>`;
+  } else if (!pack) {
+    body = `<p class="muted">No plan available for ${escapeHtml(cityName)} yet.</p>`;
+  } else {
+    const periods = [...(pack.periods ?? [])].sort((a, b) => a.index - b.index);
+    body = periods.map((period) => renderPeriod(period)).join("");
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Today — Leo</title>
+  <title>${escapeHtml(title)} — Leo</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -193,93 +292,81 @@ export function renderTodayPage(packResults) {
       padding: 1.5rem 1rem 3rem;
     }
     h1 {
-      font-size: 1.5rem;
-      margin: 0 0 1rem;
+      font-size: 1.75rem;
+      margin: 0 0 0.5rem;
+      line-height: 1.2;
     }
-    .tabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.25rem;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 0.5rem;
-    }
-    .tab {
-      border: 1px solid #ccc;
-      background: #fff;
-      padding: 0.4rem 0.9rem;
-      border-radius: 999px;
-      cursor: pointer;
-      font: inherit;
-    }
-    .tab.active {
-      background: #111;
-      color: #fff;
-      border-color: #111;
-    }
-    .meta {
+    .updated {
       color: #666;
       font-size: 0.9rem;
       margin: 0 0 1rem;
     }
+    .intro {
+      margin: 0 0 1.5rem;
+      color: #333;
+    }
     .period {
-      background: #fff;
-      border: 1px solid #e5e5e5;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .period-divider {
+      border: 0;
+      border-top: 1px solid #ddd;
+      margin: 0 0 1rem;
     }
     .period-title {
       margin: 0 0 0.75rem;
-      font-size: 1.1rem;
+      font-size: 1.25rem;
+    }
+    .why-now,
+    .price-range,
+    .description {
+      margin: 0 0 0.5rem;
+      color: #333;
+    }
+    .stats {
+      list-style: none;
+      padding: 0;
+      margin: 0.75rem 0 1rem;
+    }
+    .stats li {
+      margin: 0.25rem 0;
+    }
+    .stats a {
+      color: #111;
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
     .hero {
       width: 100%;
       aspect-ratio: 16 / 9;
       object-fit: cover;
-      border-radius: 6px;
       display: block;
-      margin-bottom: 0.75rem;
+      margin: 0 0 0.5rem;
       background: #eee;
     }
     .hero-placeholder {
       min-height: 160px;
       background: linear-gradient(135deg, #ececec, #f7f7f7);
     }
-    .activity-copy {
+    .image-caption {
       margin: 0;
-      color: #444;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .image-caption a {
+      color: inherit;
     }
     .muted { color: #777; }
     .error { color: #a00; }
-    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <main>
-    <h1>Today</h1>
-    <nav class="tabs" aria-label="City">${tabs}</nav>
-    ${panels}
+    <h1>${escapeHtml(title)}</h1>
+    ${updated ? `<p class="updated">${escapeHtml(updated)}</p>` : ""}
+    <p class="intro">${escapeHtml(intro)}</p>
+    ${body}
   </main>
-  <script>
-    const tabs = document.querySelectorAll(".tab");
-    const panels = document.querySelectorAll(".city-panel");
-    function selectCity(city) {
-      if (!city) return;
-      let matched = false;
-      tabs.forEach((t) => {
-        const on = t.dataset.city === city;
-        t.classList.toggle("active", on);
-        if (on) matched = true;
-      });
-      if (!matched) return;
-      panels.forEach((p) => { p.hidden = p.dataset.city !== city; });
-    }
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => selectCity(tab.dataset.city));
-    });
-    const fromQuery = new URLSearchParams(location.search).get("city");
-    if (fromQuery) selectCity(fromQuery);
-  </script>
 </body>
 </html>`;
 }

@@ -36,3 +36,14 @@ export async function fetchAllPublishedPacks(env) {
   );
   return results;
 }
+
+export async function fetchPublishedCityPack(env, webCityId) {
+  const city = publishedCities.find((c) => c.webCityId === webCityId);
+  if (!city) return null;
+  try {
+    const pack = await fetchTodayPack(env, city.webCityId);
+    return { city, pack, error: null };
+  } catch (err) {
+    return { city, pack: null, error: err?.message ?? String(err) };
+  }
+}

@@ -1,4 +1,4 @@
-import { publishedCities } from "../config/cities.js";
+import { publishedCities, cityTodayPath } from "../config/cities.js";
 import { buildHeroProxyPath } from "./images.js";
 import {
   buildActivityCopy,
@@ -363,7 +363,7 @@ function renderHeroCtaBand(city) {
       <a
         class="hero-cta-link"
         id="hero-explore"
-        href="/today?city=${escapeHtml(id)}"
+        href="${cityTodayPath(id)}"
         data-city="${escapeHtml(id)}"
       >
         <span class="hero-cta-label">Explore <span id="hero-explore-city">${escapeHtml(name)}</span></span>
@@ -397,21 +397,21 @@ export function renderHomePage(packResults = null) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=period-names-1">
+  <link rel="stylesheet" href="/home/home.css?v=map-cluster-1">
 </head>
 <body>
   <header class="site-nav" id="site-nav">
     <a class="brand" href="/">Leo <span aria-hidden="true">☺</span></a>
     <nav class="nav-links" aria-label="Primary">
       <a href="#feature-01">Features</a>
-      <a href="/today">Cities</a>
+      <a href="${cityTodayPath(defaultCityId)}">Cities</a>
       <a class="btn-pill btn-pill--solid" href="#">Try for Free</a>
     </nav>
     <button type="button" class="nav-menu" id="nav-menu" aria-label="Open menu" aria-expanded="false">≡</button>
   </header>
   <div class="nav-drawer" id="nav-drawer" hidden>
     <a href="#feature-01">Features</a>
-    <a href="/today">Cities</a>
+    <a href="${cityTodayPath(defaultCityId)}">Cities</a>
     <a class="btn-pill btn-pill--solid" href="#">Try for Free</a>
   </div>
 
@@ -577,11 +577,11 @@ export function renderHomePage(packResults = null) {
       <h2>Where Leo Travels</h2>
     </div>
     <div class="cities-grid">
-      <a class="city-card" href="/today">
+      <a class="city-card" href="${cityTodayPath("tokyo")}">
         <div class="city-card-photo phatch"></div>
         <div class="city-card-body">Tokyo →<span>340 activities</span></div>
       </a>
-      <a class="city-card" href="/today">
+      <a class="city-card" href="${cityTodayPath("paris")}">
         <div class="city-card-photo phatch"></div>
         <div class="city-card-body">Paris →<span>280 activities</span></div>
       </a>
@@ -645,8 +645,8 @@ export function renderHomePage(packResults = null) {
     <div class="footer-cols">
       <div>
         <strong>Cities</strong>
-        <a href="/today">Tokyo</a>
-        <a href="/today">Paris</a>
+        <a href="${cityTodayPath("tokyo")}">Tokyo</a>
+        <a href="${cityTodayPath("paris")}">Paris</a>
         <span>New York (soon)</span>
       </div>
       <div>

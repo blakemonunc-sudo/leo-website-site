@@ -2,10 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   renderTodayPage,
+  renderCityTodayPage,
   buildSightCopy,
   buildFoodDrinkCopy,
   buildSideQuestCopy,
   capitalizeSentenceStart,
+  buildPeriodHeader,
+  formatUpdatedAt,
+  normalizeWebsiteUrl,
+  APP_STORE_URL,
 } from "../src/render-today.js";
 import {
   activityBandTitle,
@@ -14,6 +19,7 @@ import {
   renderHomePage,
 } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
+import { cityTodayPath, parseCityTodayPath } from "../config/cities.js";
 
 test("formatHeroPeriodName keeps DayPeriod names and special-cases Coffee", () => {
   assert.equal(formatHeroPeriodName("Morning", "09:00"), "Morning");
@@ -24,6 +30,13 @@ test("formatHeroPeriodName keeps DayPeriod names and special-cases Coffee", () =
   assert.equal(formatHeroPeriodName("Coffee", "15:00"), "Afternoon Coffee");
   assert.equal(formatHeroPeriodName("Coffee", null), "Coffee");
   assert.equal(formatHeroPeriodName("Coffee", "bad"), "Coffee");
+});
+
+test("cityTodayPath and parseCityTodayPath round-trip", () => {
+  assert.equal(cityTodayPath("tokyo"), "/what-to-do-in-tokyo-today");
+  assert.equal(parseCityTodayPath("/what-to-do-in-tokyo-today"), "tokyo");
+  assert.equal(parseCityTodayPath("/what-to-do-in-paris-today"), "paris");
+  assert.equal(parseCityTodayPath("/today"), null);
 });
 
 test("activityBandTitle formats by activity type", () => {
@@ -109,71 +122,128 @@ test("buildSideQuestCopy prefers teaserLower and sentence-caps first letter", ()
   assert.doesNotMatch(copy, /You'll be/);
 });
 
-test("renderTodayPage uses content-addressed same-origin image proxy URLs", () => {
+test("buildPeriodHeader formats by activity type", () => {
+  assert.equal(
+    buildPeriodHeader(
+      { label: "Clear · Morning" },
+      { type: "sight", dayPeriodConnector: "at", place: "Shinjuku Gyoen" }
+    ),
+    "Morning at Shinjuku Gyoen"
+  );
+  assert.equal(
+    buildPeriodHeader({ label: "Clear · Afternoon" }, { type: "sideQuest", title: "Station" }),
+    "Afternoon Side Quest!"
+  );
+  assert.equal(
+    buildPeriodHeader({ label: "Clear · Lunch" }, { type: "foodDrink", title: "Afuri Lumine" }),
+    "Lunch at Afuri Lumine"
+  );
+});
+
+test("formatUpdatedAt uses city timezone", () => {
+  const text = formatUpdatedAt("2026-07-07T15:30:00.000Z", "Asia/Tokyo");
+  assert.match(text, /^Updated Jul 08, 2026 at /);
+  assert.match(text, / (JST|GMT\+9)$/);
+});
+
+test("normalizeWebsiteUrl adds https when missing", () => {
+  assert.equal(normalizeWebsiteUrl("afuri.com"), "https://afuri.com");
+  assert.equal(normalizeWebsiteUrl("https://afuri.com"), "https://afuri.com");
+  assert.equal(normalizeWebsiteUrl("  "), null);
+});
+
+test("renderCityTodayPage uses new section layout and same-origin image proxy", () => {
   const imageId = "ce236d9a-9a78-43d7-0e65-31affc694c00";
+  const html = renderCityTodayPage({
+    city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+    pack: {
+      localDate: "2026-07-07",
+      generatedAt: "2026-07-07T15:30:00.000Z",
+      periods: [
+        {
+          index: 1,
+          label: "Clear · Morning",
+          tempMinC: 20,
+          tempMaxC: 24,
+          activity: {
+            type: "sight",
+            title: "Shinjuku Gyoen",
+            place: "Shinjuku Gyoen",
+            dayPeriodConnector: "at",
+            whyGo: "Stroll the lawns and glasshouse.",
+            priceRange: "—",
+            website: "https://www.env.go.jp/garden/shinjukugyoen/",
+            latitude: 35.6852,
+            longitude: 139.71,
+            heroImage: `cfimg://${imageId}`,
+            imageCaption: "Photo by Leo",
+            imageSourceWebsite: "https://example.com/photo",
+            whyTeaser: "You'll be outside in pleasant weather.",
+          },
+        },
+        {
+          index: 2,
+          label: "Clear · Lunch",
+          tempMinC: 28,
+          tempMaxC: 28,
+          activity: {
+            type: "foodDrink",
+            title: "Afuri Lumine",
+            category: "Ramen",
+            description: "Yuzu shio ramen near Shinjuku.",
+            priceRange: "—",
+          },
+        },
+        {
+          index: 3,
+          label: "Clear · Afternoon",
+          tempMinC: 30,
+          tempMaxC: 30,
+          activity: {
+            type: "sideQuest",
+            title: "Shinjuku Station",
+            whyGo: "Ride somewhere unexpected.",
+            priceRange: "—",
+            whyTeaser: "You'll be partly inside in hot weather.",
+          },
+        },
+      ],
+    },
+    error: null,
+  });
+
+  assert.match(html, /What to do in Tokyo Today/);
+  assert.match(html, /Updated Jul 08, 2026 at /);
+  assert.match(html, /Tokyo changes by the hour/);
+  assert.match(html, /Morning at Shinjuku Gyoen/);
+  assert.match(html, /Why now: You&#39;ll be outside in pleasant weather\./);
+  assert.match(html, /Price range: —/);
+  assert.match(html, /Stroll the lawns and glasshouse\./);
+  assert.match(html, /Explore in the app →/);
+  assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, /35\.6852, 139\.71 →/);
+  assert.match(html, /maps\.google\.com\/\?q=/);
+  assert.match(html, /Visit website →/);
+  assert.match(html, new RegExp(`/img/${imageId}`));
+  assert.match(html, /Photo by Leo/);
+  assert.match(html, /Lunch at Afuri Lumine/);
+  assert.match(html, /Yuzu shio ramen near Shinjuku\./);
+  assert.match(html, /Afternoon Side Quest!/);
+  assert.match(html, /Ride somewhere unexpected\./);
+  assert.doesNotMatch(html, /activity-copy/);
+  assert.doesNotMatch(html, /imagedelivery\.net/);
+  assert.doesNotMatch(html, /cfimg:\/\//);
+});
+
+test("renderTodayPage delegates to city page for first pack result", () => {
   const html = renderTodayPage([
     {
-      city: { webCityId: "tokyo", name: "Tokyo" },
-      pack: {
-        localDate: "2026-07-07",
-        periods: [
-          {
-            index: 1,
-            label: "Clear · Morning",
-            tempMinC: 20,
-            tempMaxC: 24,
-            activity: {
-              type: "sight",
-              title: "Shinjuku Gyoen",
-              intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
-              heroImage: `cfimg://${imageId}`,
-              whyTeaser: "You'll be outside in pleasant weather.",
-            },
-          },
-          {
-            index: 2,
-            label: "Clear · Lunch",
-            tempMinC: 28,
-            tempMaxC: 28,
-            activity: {
-              type: "foodDrink",
-              title: "Afuri Lumine",
-              category: "Ramen",
-              teaserAction: "try ramen, a noodle soup with a rich broth and topping",
-            },
-          },
-          {
-            index: 3,
-            label: "Clear · Afternoon",
-            tempMinC: 30,
-            tempMaxC: 30,
-            activity: {
-              type: "sideQuest",
-              title: "Shinjuku Station",
-              teaserLower: "ride the JR Yamanote Line to a random neighborhood",
-              whyTeaser: "You'll be partly inside in hot weather.",
-            },
-          },
-        ],
-      },
+      city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+      pack: { localDate: "2026-07-07", periods: [] },
       error: null,
     },
   ]);
-
-  assert.match(html, new RegExp(`/img/${imageId}`));
-  assert.doesNotMatch(html, /\/img\/tokyo\/1/);
-  assert.doesNotMatch(html, /imagedelivery\.net/);
-  assert.doesNotMatch(html, /cfimg:\/\//);
-  assert.match(html, /68–75°F/);
-  assert.match(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens\./);
-  assert.match(html, /You&#39;ll be outside in pleasant weather\./);
-  assert.match(html, /For lunch try ramen, a noodle soup with a rich broth and topping\./);
-  assert.match(html, /Afuri Lumine is open and nearby\./);
-  assert.match(html, /Ride the JR Yamanote Line to a random neighborhood\. Shinjuku Station is closest\./);
-  assert.match(html, /activity-copy/);
-  assert.doesNotMatch(html, /activity-weather-fit/);
-  assert.doesNotMatch(html, /activity-why-teaser/);
-  assert.doesNotMatch(html, /Start at Shinjuku Gyoen/);
+  assert.match(html, /What to do in Tokyo Today/);
 });
 
 test("buildHeroProxyPath is content-addressed by Cloudflare image id", () => {
@@ -368,12 +438,14 @@ test("renderHomePage uses expandable period bands, not carousel", () => {
   assert.match(html, /calling-card-title">Shinjuku Gyoen</);
   assert.match(html, /calling-card-title">Ramen</);
   assert.match(html, new RegExp(`/img/${imageId}`));
+  assert.match(html, /\/what-to-do-in-tokyo-today/);
   assert.doesNotMatch(html, /hero-carousel/);
   assert.doesNotMatch(html, /hero-track/);
   assert.doesNotMatch(html, /hero-slide/);
   assert.doesNotMatch(html, /hero-drawer/);
   assert.doesNotMatch(html, /period-tile/);
   assert.doesNotMatch(html, /data-interval/);
+  assert.doesNotMatch(html, /href="\/today"/);
 });
 
 test("renderHomePage includes city switcher for published cities", () => {
@@ -435,4 +507,6 @@ test("renderHomePage includes city switcher for published cities", () => {
   assert.match(html, /Shinjuku Gyoen/);
   assert.match(html, /Jardin du Luxembourg/);
   assert.match(html, /id="hero-periods-paris"[^>]*hidden/);
+  assert.match(html, /\/what-to-do-in-tokyo-today/);
+  assert.match(html, /\/what-to-do-in-paris-today/);
 });

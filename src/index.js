@@ -1,8 +1,13 @@
-import { publishedCities } from "../config/cities.js";
-import { fetchAllPublishedPacks } from "./api.js";
+import {
+  publishedCities,
+  getPublishedCity,
+  cityTodayPath,
+  parseCityTodayPath,
+} from "../config/cities.js";
+import { fetchAllPublishedPacks, fetchPublishedCityPack } from "./api.js";
 import { isValidCfImageId, proxyHeroImage } from "./images.js";
 import { renderHomePage } from "./render-home.js";
-import { renderTodayPage } from "./render-today.js";
+import { renderCityTodayPage } from "./render-today.js";
 
 const HTML_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
@@ -11,6 +16,13 @@ const HTML_HEADERS = {
 
 function notFound(message = "Not found") {
   return new Response(message, { status: 404 });
+}
+
+function redirectPermanent(location) {
+  return new Response(null, {
+    status: 301,
+    headers: { Location: location, "Cache-Control": "public, max-age=3600" },
+  });
 }
 
 async function handleHomePage(env) {
@@ -23,10 +35,19 @@ async function handleHomePage(env) {
   return new Response(renderHomePage(packResults), { status: 200, headers: HTML_HEADERS });
 }
 
-async function handleTodayPage(env) {
-  const packResults = await fetchAllPublishedPacks(env);
-  const html = renderTodayPage(packResults);
+async function handleCityTodayPage(env, webCityId) {
+  const result = await fetchPublishedCityPack(env, webCityId);
+  if (!result) return notFound("Unknown city");
+
+  const html = renderCityTodayPage(result);
   return new Response(html, { status: 200, headers: HTML_HEADERS });
+}
+
+function redirectLegacyToday(url) {
+  const requested = url.searchParams.get("city");
+  const city = (requested && getPublishedCity(requested)) || publishedCities[0];
+  if (!city) return notFound("No cities published");
+  return redirectPermanent(cityTodayPath(city.webCityId));
 }
 
 async function handleImageProxy(env, imageId) {
@@ -51,10 +72,19 @@ export default {
       if (request.method !== "GET") {
         return new Response("Method not allowed", { status: 405 });
       }
+      return redirectLegacyToday(url);
+    }
+
+    const cityTodayId = parseCityTodayPath(pathname);
+    if (cityTodayId) {
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      if (!getPublishedCity(cityTodayId)) return notFound("Unknown city");
       try {
-        return await handleTodayPage(env);
+        return await handleCityTodayPage(env, cityTodayId);
       } catch (err) {
-        console.error("[SITE] today page error:", err?.message ?? err);
+        console.error(`[SITE] city today page error (${cityTodayId}):`, err?.message ?? err);
         return new Response("Failed to load today's plan", { status: 500 });
       }
     }
