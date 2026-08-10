@@ -40,6 +40,27 @@ export function parsePeriodLabel(label) {
   return { condition: label ?? "", periodName: "" };
 }
 
+/** Parse pack period.start ("HH:MM") as a 24-hour hour integer. */
+function parseStartHour24(start) {
+  const match = String(start ?? "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour24 = Number(match[1]);
+  if (!Number.isInteger(hour24) || hour24 < 0 || hour24 > 23) return null;
+  return hour24;
+}
+
+/**
+ * Display name for a DayPeriod (homepage hero + city today headers).
+ * Coffee → Morning Coffee (start before noon) / Afternoon Coffee (noon or later).
+ */
+export function formatHeroPeriodName(periodName, start) {
+  const name = String(periodName ?? "").trim();
+  if (name !== "Coffee") return name;
+  const hour = parseStartHour24(start);
+  if (hour == null) return "Coffee";
+  return hour < 12 ? "Morning Coffee" : "Afternoon Coffee";
+}
+
 export function appendWhyTeaser(base, whyTeaser) {
   if (!whyTeaser) return base;
   const trimmed = whyTeaser.trim();
@@ -115,27 +136,19 @@ export function formatUpdatedAt(generatedAt, timeZone) {
     month: "short",
     day: "2-digit",
     year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZoneName: "short",
   }).formatToParts(date);
 
   const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
   const month = get("month");
   const day = get("day");
   const year = get("year");
-  const hour = get("hour");
-  const minute = get("minute");
-  const dayPeriod = get("dayPeriod");
-  const tmz = get("timeZoneName");
-  if (!month || !day || !year || !hour || !minute || !dayPeriod) return "";
-  return `Updated ${month} ${day}, ${year} at ${hour}:${minute} ${dayPeriod}${tmz ? ` ${tmz}` : ""}`;
+  if (!month || !day || !year) return "";
+  return `${month} ${day}, ${year}`;
 }
 
 export function buildPeriodHeader(period, activity) {
   const { periodName } = parsePeriodLabel(period?.label);
-  const dayPeriod = periodName || "Today";
+  const dayPeriod = formatHeroPeriodName(periodName, period?.start) || "Today";
   if (!activity) return dayPeriod;
 
   if (activity.type === "sight") {
@@ -159,16 +172,8 @@ export function activityDescription(activity) {
   return activity.whyGo?.trim() ?? "";
 }
 
-function formatCoordinateLabel(lat, lon) {
-  const format = (n) => {
-    const num = Number(n);
-    if (!Number.isFinite(num)) return null;
-    return String(Number(num.toFixed(5)));
-  };
-  const latStr = format(lat);
-  const lonStr = format(lon);
-  if (latStr == null || lonStr == null) return null;
-  return `${latStr}, ${lonStr}`;
+function hasValidCoordinates(lat, lon) {
+  return Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
 }
 
 function renderStats(activity) {
@@ -176,11 +181,10 @@ function renderStats(activity) {
     `<li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Explore in the app →</a></li>`,
   ];
 
-  const coordLabel = formatCoordinateLabel(activity?.latitude, activity?.longitude);
-  if (coordLabel) {
+  if (hasValidCoordinates(activity?.latitude, activity?.longitude)) {
     const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(`${activity.latitude},${activity.longitude}`)}`;
     rows.push(
-      `<li><a href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">${escapeHtml(coordLabel)} →</a></li>`
+      `<li><a href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">Get directions →</a></li>`
     );
   }
 
@@ -230,13 +234,13 @@ function renderPeriod(period) {
   return `
     <section class="period">
       <hr class="period-divider">
+      ${renderHero(activity)}
+      ${renderCaption(activity)}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
       ${whyNow ? `<p class="why-now">Why now: ${escapeHtml(whyNow)}</p>` : ""}
       <p class="price-range">Price range: ${escapeHtml(priceRange)}</p>
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderStats(activity)}
-      ${renderHero(activity)}
-      ${renderCaption(activity)}
     </section>`;
 }
 

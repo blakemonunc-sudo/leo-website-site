@@ -3,6 +3,7 @@ import { buildHeroProxyPath } from "./images.js";
 import {
   buildActivityCopy,
   formatAvgTemp,
+  formatHeroPeriodName,
   parsePeriodLabel,
 } from "./render-today.js";
 
@@ -102,27 +103,6 @@ const FALLBACK_PERIODS = [
     },
   },
 ];
-
-/** Parse pack period.start ("HH:MM") as a 24-hour hour integer. */
-function parseStartHour24(start) {
-  const match = String(start ?? "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour24 = Number(match[1]);
-  if (!Number.isInteger(hour24) || hour24 < 0 || hour24 > 23) return null;
-  return hour24;
-}
-
-/**
- * Display name for a DayPeriod in hero weather meta.
- * Coffee → Morning Coffee (start before noon) / Afternoon Coffee (noon or later).
- */
-export function formatHeroPeriodName(periodName, start) {
-  const name = String(periodName ?? "").trim();
-  if (name !== "Coffee") return name;
-  const hour = parseStartHour24(start);
-  if (hour == null) return "Coffee";
-  return hour < 12 ? "Morning Coffee" : "Afternoon Coffee";
-}
 
 /** LeoMagic face paths from LeoSymbolSF / LeoSymbolSF.heart (Regular, SF Symbol local coords). */
 const LEO_MAGIC_FACE_SMILE =

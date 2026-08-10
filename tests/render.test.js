@@ -8,6 +8,7 @@ import {
   buildSideQuestCopy,
   capitalizeSentenceStart,
   buildPeriodHeader,
+  formatHeroPeriodName,
   formatUpdatedAt,
   normalizeWebsiteUrl,
   APP_STORE_URL,
@@ -15,7 +16,6 @@ import {
 import {
   activityBandTitle,
   buildHeroPeriods,
-  formatHeroPeriodName,
   renderHomePage,
 } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
@@ -140,10 +140,37 @@ test("buildPeriodHeader formats by activity type", () => {
   );
 });
 
-test("formatUpdatedAt uses city timezone", () => {
-  const text = formatUpdatedAt("2026-07-07T15:30:00.000Z", "Asia/Tokyo");
-  assert.match(text, /^Updated Jul 08, 2026 at /);
-  assert.match(text, / (JST|GMT\+9)$/);
+test("buildPeriodHeader special-cases Coffee by start hour", () => {
+  assert.equal(
+    buildPeriodHeader(
+      { label: "Clear · Coffee", start: "09:00" },
+      { type: "foodDrink", title: "Cafe Kitsune" }
+    ),
+    "Morning Coffee at Cafe Kitsune"
+  );
+  assert.equal(
+    buildPeriodHeader(
+      { label: "Clear · Coffee", start: "14:00" },
+      { type: "foodDrink", title: "Blue Bottle" }
+    ),
+    "Afternoon Coffee at Blue Bottle"
+  );
+  assert.equal(
+    buildPeriodHeader(
+      { label: "Clear · Coffee", start: "10:00" },
+      { type: "sight", dayPeriodConnector: "near", place: "Yoyogi Park" }
+    ),
+    "Morning Coffee near Yoyogi Park"
+  );
+  assert.equal(
+    buildPeriodHeader({ label: "Clear · Coffee" }, { type: "sideQuest", title: "Station" }),
+    "Coffee Side Quest!"
+  );
+});
+
+test("formatUpdatedAt uses city timezone date only", () => {
+  assert.equal(formatUpdatedAt("2026-07-07T15:30:00.000Z", "Asia/Tokyo"), "Jul 08, 2026");
+  assert.equal(formatUpdatedAt("2026-08-10T15:00:00.000Z", "Asia/Tokyo"), "Aug 11, 2026");
 });
 
 test("normalizeWebsiteUrl adds https when missing", () => {
@@ -213,7 +240,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   });
 
   assert.match(html, /What to do in Tokyo Today/);
-  assert.match(html, /Updated Jul 08, 2026 at /);
+  assert.match(html, />Jul 08, 2026</);
+  assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
   assert.match(html, /Morning at Shinjuku Gyoen/);
   assert.match(html, /Why now: You&#39;ll be outside in pleasant weather\./);
@@ -221,11 +249,18 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, /Stroll the lawns and glasshouse\./);
   assert.match(html, /Explore in the app →/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(html, /35\.6852, 139\.71 →/);
-  assert.match(html, /maps\.google\.com\/\?q=/);
+  assert.match(html, /Get directions →/);
+  assert.match(html, /maps\.google\.com\/\?q=35\.6852%2C139\.71/);
+  assert.doesNotMatch(html, /35\.6852, 139\.71/);
   assert.match(html, /Visit website →/);
   assert.match(html, new RegExp(`/img/${imageId}`));
   assert.match(html, /Photo by Leo/);
+  assert.match(
+    html,
+    new RegExp(
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?stats`
+    )
+  );
   assert.match(html, /Lunch at Afuri Lumine/);
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
   assert.match(html, /Afternoon Side Quest!/);
