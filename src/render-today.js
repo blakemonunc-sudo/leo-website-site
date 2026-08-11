@@ -1,4 +1,5 @@
 import { buildHeroProxyPath } from "./images.js";
+import { navAssetTags, renderSiteNav } from "./render-nav.js";
 
 export const APP_STORE_URL =
   "https://apps.apple.com/us/app/leo-spontaneous-travel-guide/id6755015197";
@@ -32,12 +33,33 @@ export function formatAvgTemp(tempMinC, tempMaxC) {
   return `${Math.round((minF + maxF) / 2)}°F`;
 }
 
+export const CONDITION_SYMBOLS = {
+  Clear: "☀️",
+  "Partly Cloudy": "⛅",
+  Cloudy: "☁️",
+  Overcast: "☁️",
+  Showery: "🌦️",
+  Rainy: "🌧️",
+  Stormy: "⛈️",
+};
+
 export function parsePeriodLabel(label) {
   const parts = String(label ?? "").split(" · ");
   if (parts.length >= 2) {
     return { condition: parts[0].trim(), periodName: parts.slice(1).join(" · ").trim() };
   }
   return { condition: label ?? "", periodName: "" };
+}
+
+/** Weather symbol + avg °F for homepage bands and Today period headers. */
+export function buildPeriodWeatherLine(period) {
+  const { condition } = parsePeriodLabel(period?.label);
+  const hasCondition = Boolean(String(condition ?? "").trim());
+  const avgTempLabel = formatAvgTemp(period?.tempMinC, period?.tempMaxC);
+  if (!hasCondition && !avgTempLabel) return "";
+
+  const symbol = CONDITION_SYMBOLS[condition] ?? "🌤️";
+  return [symbol, avgTempLabel].filter(Boolean).join(" ");
 }
 
 /** Parse pack period.start ("HH:MM") as a 24-hour hour integer. */
@@ -166,10 +188,48 @@ export function buildPeriodHeader(period, activity) {
   return dayPeriod;
 }
 
+/**
+ * AdventureView intro paragraph (first sentence before why_go).
+ * Formula: "{vibeString}, {teaserConnector} {teaser}" where
+ * vibeString = [vibeName, connector, place].filter(Boolean).join(" ").
+ * Pack often ships the same string as `intro` without a separate `teaser`.
+ */
+export function buildSightDescriptionSentence(activity) {
+  const vibeName = activity?.vibeName?.trim() ?? "";
+  const connector = activity?.connector?.trim() ?? "";
+  const place = activity?.place?.trim() ?? "";
+  const teaserConnector = activity?.teaserConnector?.trim() ?? "";
+  const teaser = activity?.teaser?.trim() ?? "";
+  const vibeString = [vibeName, connector, place].filter(Boolean).join(" ");
+
+  if (teaser) {
+    if (vibeString) {
+      return teaserConnector
+        ? `${vibeString}, ${teaserConnector} ${teaser}`
+        : `${vibeString}, ${teaser}`;
+    }
+    return teaser;
+  }
+
+  const intro = activity?.intro?.trim() ?? "";
+  if (intro) return intro;
+  return vibeString;
+}
+
+/** ChallengeTeaser: capitalize teaser and ensure a trailing period. */
+export function buildSideQuestDescriptionSentence(activity) {
+  const teaser = activity?.teaser?.trim() ?? "";
+  if (!teaser) return "";
+  const withPeriod = teaser.endsWith(".") ? teaser : `${teaser}.`;
+  return capitalizeSentenceStart(withPeriod);
+}
+
 export function activityDescription(activity) {
   if (!activity) return "";
   if (activity.type === "foodDrink") return activity.description?.trim() ?? "";
-  return activity.whyGo?.trim() ?? "";
+  if (activity.type === "sight") return buildSightDescriptionSentence(activity);
+  if (activity.type === "sideQuest") return buildSideQuestDescriptionSentence(activity);
+  return "";
 }
 
 function hasValidCoordinates(lat, lon) {
@@ -216,29 +276,52 @@ function renderCaption(activity) {
   return `<p class="image-caption">${escapeHtml(caption)}</p>`;
 }
 
+function periodSectionId(period) {
+  const index = Number.isFinite(Number(period?.index)) ? Number(period.index) : 0;
+  return `period-${index}`;
+}
+
+function dayPeriodNavName(period) {
+  const { periodName } = parsePeriodLabel(period?.label);
+  return formatHeroPeriodName(periodName, period?.start) || periodName || "Today";
+}
+
+function renderPeriodWeather(period) {
+  const weatherLine = buildPeriodWeatherLine(period);
+  if (!weatherLine) return "";
+  return `<p class="band-meta-weather">${escapeHtml(weatherLine)}</p>`;
+}
+
 function renderPeriod(period) {
   const activity = period.activity;
+  const sectionId = periodSectionId(period);
+  const weather = renderPeriodWeather(period);
   if (!activity) {
     return `
-    <section class="period">
+    <section class="period" id="${escapeHtml(sectionId)}">
       <hr class="period-divider">
+      ${weather}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, null))}</h2>
       <p class="muted">No activity scheduled</p>
     </section>`;
   }
 
   const whyNow = activity.whyTeaser?.trim();
-  const priceRange = activity.priceRange?.trim() || "—";
+  const priceRange = activity.priceRange?.trim() || "";
   const description = activityDescription(activity);
+  const priceRangeHtml = priceRange
+    ? `<p class="price-range">Price range: ${escapeHtml(priceRange)}</p>`
+    : "";
 
   return `
-    <section class="period">
+    <section class="period" id="${escapeHtml(sectionId)}">
       <hr class="period-divider">
       ${renderHero(activity)}
       ${renderCaption(activity)}
+      ${weather}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
       ${whyNow ? `<p class="why-now">Why now: ${escapeHtml(whyNow)}</p>` : ""}
-      <p class="price-range">Price range: ${escapeHtml(priceRange)}</p>
+      ${priceRangeHtml}
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderStats(activity)}
     </section>`;
@@ -263,7 +346,13 @@ export function renderCityTodayPage({ city, pack, error }) {
   const cityName = city?.name ?? "City";
   const title = `What to Do in ${cityName} Today`;
   const updated = formatUpdatedAt(pack?.generatedAt, city?.timezone);
-  const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for each period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
+  const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for every period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
+
+  const periods = pack ? [...(pack.periods ?? [])].sort((a, b) => a.index - b.index) : [];
+  const periodLinks = periods.map((period) => ({
+    name: dayPeriodNavName(period),
+    href: `#${periodSectionId(period)}`,
+  }));
 
   let body;
   if (error) {
@@ -271,7 +360,6 @@ export function renderCityTodayPage({ city, pack, error }) {
   } else if (!pack) {
     body = `<p class="muted">No plan available for ${escapeHtml(cityName)} yet.</p>`;
   } else {
-    const periods = [...(pack.periods ?? [])].sort((a, b) => a.index - b.index);
     body = periods.map((period) => renderPeriod(period)).join("");
   }
 
@@ -281,6 +369,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} — Leo</title>
+  ${navAssetTags()}
   <style>
     * { box-sizing: border-box; }
     body {
@@ -311,11 +400,19 @@ export function renderCityTodayPage({ city, pack, error }) {
     }
     .period {
       margin-bottom: 1.75rem;
+      scroll-margin-top: calc(var(--leo-nav-offset, 56px) + 12px);
     }
     .period-divider {
       border: 0;
       border-top: 1px solid #ddd;
       margin: 0 0 1rem;
+    }
+    .band-meta-weather {
+      margin: 0 0 0.25rem;
+      font-size: 0.95rem;
+      color: #666;
+      letter-spacing: 0.01em;
+      line-height: 1.15;
     }
     .period-title {
       margin: 0 0 0.75rem;
@@ -365,6 +462,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   </style>
 </head>
 <body>
+  ${renderSiteNav({ variant: "today", city, periodLinks })}
   <main>
     <h1>${escapeHtml(title)}</h1>
     ${updated ? `<p class="updated">${escapeHtml(updated)}</p>` : ""}

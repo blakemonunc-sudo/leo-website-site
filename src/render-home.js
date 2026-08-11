@@ -1,21 +1,14 @@
 import { publishedCities, cityTodayPath } from "../config/cities.js";
 import { buildHeroProxyPath } from "./images.js";
+import { navAssetTags, renderSiteNav } from "./render-nav.js";
 import {
   buildActivityCopy,
+  buildPeriodWeatherLine,
+  CONDITION_SYMBOLS,
   formatAvgTemp,
   formatHeroPeriodName,
   parsePeriodLabel,
 } from "./render-today.js";
-
-const CONDITION_SYMBOLS = {
-  Clear: "☀️",
-  "Partly Cloudy": "⛅",
-  Cloudy: "☁️",
-  Overcast: "☁️",
-  Showery: "🌦️",
-  Rainy: "🌧️",
-  Stormy: "⛈️",
-};
 
 const TYPE_TO_CALLING = {
   sight: "places",
@@ -196,7 +189,7 @@ export function buildHeroPeriods(pack) {
       formatHeroPeriodName(periodName, period.start) ||
       `Period ${period.index ?? i + 1}`;
     const avgTempLabel = formatAvgTemp(period.tempMinC, period.tempMaxC);
-    const weatherLine = [symbol, avgTempLabel].filter(Boolean).join(" ");
+    const weatherLine = buildPeriodWeatherLine(period) || [symbol, avgTempLabel].filter(Boolean).join(" ");
     const title = activityBandTitle(activity) || name;
     const subtitle = [weatherLine, name].filter(Boolean).join(" | ");
     const metaLine = [title, subtitle].filter(Boolean).join(" · ");
@@ -378,22 +371,10 @@ export function renderHomePage(packResults = null) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
   <link rel="stylesheet" href="/home/home.css?v=map-cluster-1">
+  ${navAssetTags()}
 </head>
 <body>
-  <header class="site-nav" id="site-nav">
-    <a class="brand" href="/">Leo <span aria-hidden="true">☺</span></a>
-    <nav class="nav-links" aria-label="Primary">
-      <a href="#feature-01">Features</a>
-      <a href="${cityTodayPath(defaultCityId)}">Cities</a>
-      <a class="btn-pill btn-pill--solid" href="#">Try for Free</a>
-    </nav>
-    <button type="button" class="nav-menu" id="nav-menu" aria-label="Open menu" aria-expanded="false">≡</button>
-  </header>
-  <div class="nav-drawer" id="nav-drawer" hidden>
-    <a href="#feature-01">Features</a>
-    <a href="${cityTodayPath(defaultCityId)}">Cities</a>
-    <a class="btn-pill btn-pill--solid" href="#">Try for Free</a>
-  </div>
+  ${renderSiteNav({ variant: "home" })}
 
   <section class="hero" id="hero" aria-label="Today's day plan">
     <div class="hero-band hero-band--intro">

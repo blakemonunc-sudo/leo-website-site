@@ -1,34 +1,6 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* —— Nav fade + mobile drawer —— */
-  const nav = document.getElementById("site-nav");
-  const menuBtn = document.getElementById("nav-menu");
-  const drawer = document.getElementById("nav-drawer");
-
-  function onScrollNav() {
-    if (!nav) return;
-    nav.classList.toggle("is-solid", window.scrollY > 24);
-  }
-
-  window.addEventListener("scroll", onScrollNav, { passive: true });
-  onScrollNav();
-
-  if (menuBtn && drawer) {
-    menuBtn.addEventListener("click", () => {
-      const open = drawer.hasAttribute("hidden");
-      if (open) drawer.removeAttribute("hidden");
-      else drawer.setAttribute("hidden", "");
-      menuBtn.setAttribute("aria-expanded", String(open));
-    });
-    drawer.querySelectorAll("a").forEach((a) => {
-      a.addEventListener("click", () => {
-        drawer.setAttribute("hidden", "");
-        menuBtn.setAttribute("aria-expanded", "false");
-      });
-    });
-  }
-
   /* —— Hero city switcher + period bands —— */
   const hero = document.getElementById("hero");
   const cityButtons = [...document.querySelectorAll(".hero-city-btn")];

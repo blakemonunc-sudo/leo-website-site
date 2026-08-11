@@ -6,12 +6,16 @@ import {
   buildSightCopy,
   buildFoodDrinkCopy,
   buildSideQuestCopy,
+  buildSightDescriptionSentence,
+  buildSideQuestDescriptionSentence,
+  activityDescription,
   capitalizeSentenceStart,
   buildPeriodHeader,
   formatHeroPeriodName,
   formatUpdatedAt,
   normalizeWebsiteUrl,
   APP_STORE_URL,
+  buildPeriodWeatherLine,
 } from "../src/render-today.js";
 import {
   activityBandTitle,
@@ -122,6 +126,77 @@ test("buildSideQuestCopy prefers teaserLower and sentence-caps first letter", ()
   assert.doesNotMatch(copy, /You'll be/);
 });
 
+test("buildSightDescriptionSentence matches AdventureView intro formula", () => {
+  assert.equal(
+    buildSightDescriptionSentence({
+      vibeName: "Unwind",
+      connector: "at",
+      place: "Shinjuku Gyoen",
+      teaserConnector: "a",
+      teaser: "144-acre campus of pristine gardens",
+    }),
+    "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens"
+  );
+  assert.equal(
+    buildSightDescriptionSentence({
+      vibeName: "Pass through",
+      connector: "",
+      place: "Tokyo Station",
+      teaser: "the center of Tokyo’s train network",
+    }),
+    "Pass through Tokyo Station, the center of Tokyo’s train network"
+  );
+  assert.equal(
+    buildSightDescriptionSentence({
+      intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
+      whyGo: "Long why-go copy should not be used.",
+    }),
+    "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens."
+  );
+});
+
+test("buildSideQuestDescriptionSentence matches ChallengeTeaser", () => {
+  assert.equal(
+    buildSideQuestDescriptionSentence({
+      teaser: "follow the Yamanote Line",
+      whyGo: "Long why-go copy should not be used.",
+    }),
+    "Follow the Yamanote Line."
+  );
+  assert.equal(
+    buildSideQuestDescriptionSentence({
+      teaser: "Already capped.",
+    }),
+    "Already capped."
+  );
+});
+
+test("activityDescription uses constructed sentences for sight and sideQuest", () => {
+  assert.equal(
+    activityDescription({
+      type: "sight",
+      intro: "Unwind at Shinjuku Gyoen, a 144-acre campus.",
+      whyGo: "Should not appear.",
+    }),
+    "Unwind at Shinjuku Gyoen, a 144-acre campus."
+  );
+  assert.equal(
+    activityDescription({
+      type: "sideQuest",
+      teaser: "ride the JR Yamanote Line",
+      whyGo: "Should not appear.",
+    }),
+    "Ride the JR Yamanote Line."
+  );
+  assert.equal(
+    activityDescription({
+      type: "foodDrink",
+      description: "Yuzu shio ramen near Shinjuku.",
+    }),
+    "Yuzu shio ramen near Shinjuku."
+  );
+});
+
 test("buildPeriodHeader formats by activity type", () => {
   assert.equal(
     buildPeriodHeader(
@@ -179,6 +254,20 @@ test("normalizeWebsiteUrl adds https when missing", () => {
   assert.equal(normalizeWebsiteUrl("  "), null);
 });
 
+test("buildPeriodWeatherLine mirrors homepage symbol + avg temp", () => {
+  assert.equal(
+    buildPeriodWeatherLine({ label: "Clear · Morning", tempMinC: 20, tempMaxC: 24 }),
+    "☀️ 72°F"
+  );
+  assert.equal(
+    buildPeriodWeatherLine({ label: "Cloudy · Evening", tempMinC: 24, tempMaxC: 26 }),
+    "☁️ 77°F"
+  );
+  assert.equal(buildPeriodWeatherLine({ label: "", tempMinC: null }), "");
+  assert.equal(buildPeriodWeatherLine({}), "");
+  assert.equal(buildPeriodWeatherLine({ label: "Clear · Morning" }), "☀️");
+});
+
 test("renderCityTodayPage uses new section layout and same-origin image proxy", () => {
   const imageId = "ce236d9a-9a78-43d7-0e65-31affc694c00";
   const html = renderCityTodayPage({
@@ -197,8 +286,13 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             title: "Shinjuku Gyoen",
             place: "Shinjuku Gyoen",
             dayPeriodConnector: "at",
+            vibeName: "Unwind",
+            connector: "at",
+            teaserConnector: "a",
+            teaser: "144-acre campus of pristine gardens",
+            intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
             whyGo: "Stroll the lawns and glasshouse.",
-            priceRange: "—",
+            priceRange: "¥¥",
             website: "https://www.env.go.jp/garden/shinjukugyoen/",
             latitude: 35.6852,
             longitude: 139.71,
@@ -218,7 +312,6 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             title: "Afuri Lumine",
             category: "Ramen",
             description: "Yuzu shio ramen near Shinjuku.",
-            priceRange: "—",
           },
         },
         {
@@ -229,8 +322,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
           activity: {
             type: "sideQuest",
             title: "Shinjuku Station",
+            teaser: "Follow the Yamanote Line",
             whyGo: "Ride somewhere unexpected.",
-            priceRange: "—",
             whyTeaser: "You'll be partly inside in hot weather.",
           },
         },
@@ -244,9 +337,16 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
   assert.match(html, /Morning at Shinjuku Gyoen/);
+  assert.match(html, /band-meta-weather">☀️ 72°F</);
+  assert.match(html, /band-meta-weather">☀️ 82°F</);
+  assert.match(html, /band-meta-weather">☀️ 86°F</);
   assert.match(html, /Why now: You&#39;ll be outside in pleasant weather\./);
-  assert.match(html, /Price range: —/);
-  assert.match(html, /Stroll the lawns and glasshouse\./);
+  assert.match(html, /Price range: ¥¥/);
+  assert.doesNotMatch(html, /price-cost-debug/);
+  assert.doesNotMatch(html, /costOfEntry/);
+  assert.doesNotMatch(html, /Price range: —/);
+  assert.match(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens/);
+  assert.doesNotMatch(html, /Stroll the lawns and glasshouse/);
   assert.match(html, /Explore in the app →/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(html, /Get directions →/);
@@ -258,13 +358,14 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?stats`
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?stats`
     )
   );
   assert.match(html, /Lunch at Afuri Lumine/);
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
   assert.match(html, /Afternoon Side Quest!/);
-  assert.match(html, /Ride somewhere unexpected\./);
+  assert.match(html, /Follow the Yamanote Line\./);
+  assert.doesNotMatch(html, /Ride somewhere unexpected/);
   assert.doesNotMatch(html, /activity-copy/);
   assert.doesNotMatch(html, /imagedelivery\.net/);
   assert.doesNotMatch(html, /cfimg:\/\//);
