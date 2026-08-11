@@ -239,7 +239,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
     error: null,
   });
 
-  assert.match(html, /What to do in Tokyo Today/);
+  assert.match(html, /What to Do in Tokyo Today/);
   assert.match(html, />Jul 08, 2026</);
   assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
@@ -278,7 +278,7 @@ test("renderTodayPage delegates to city page for first pack result", () => {
       error: null,
     },
   ]);
-  assert.match(html, /What to do in Tokyo Today/);
+  assert.match(html, /What to Do in Tokyo Today/);
 });
 
 test("buildHeroProxyPath is content-addressed by Cloudflare image id", () => {

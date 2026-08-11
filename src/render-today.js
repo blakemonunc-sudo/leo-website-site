@@ -261,7 +261,7 @@ export function renderTodayPage(packResults) {
 
 export function renderCityTodayPage({ city, pack, error }) {
   const cityName = city?.name ?? "City";
-  const title = `What to do in ${cityName} Today`;
+  const title = `What to Do in ${cityName} Today`;
   const updated = formatUpdatedAt(pack?.generatedAt, city?.timezone);
   const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for each period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
 
