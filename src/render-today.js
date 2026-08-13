@@ -1,5 +1,12 @@
 import { buildHeroProxyPath } from "./images.js";
+import {
+  conditionsLabelFromLeoMagicPct,
+  leoMagicAssetTags,
+  renderLeoMagicIndicator,
+} from "./leo-magic.js";
 import { navAssetTags, renderSiteNav } from "./render-nav.js";
+
+export { conditionsLabelFromLeoMagicPct } from "./leo-magic.js";
 
 export const APP_STORE_URL =
   "https://apps.apple.com/us/app/leo-spontaneous-travel-guide/id6755015197";
@@ -168,9 +175,19 @@ export function formatUpdatedAt(generatedAt, timeZone) {
   return `${month} ${day}, ${year}`;
 }
 
-export function buildPeriodHeader(period, activity) {
+/** Day-period display name only (e.g. Afternoon, Morning Coffee). */
+export function buildPeriodDayName(period) {
   const { periodName } = parsePeriodLabel(period?.label);
-  const dayPeriod = formatHeroPeriodName(periodName, period?.start) || "Today";
+  return formatHeroPeriodName(periodName, period?.start) || periodName || "Today";
+}
+
+/**
+ * Main period title with DayPeriod included.
+ * Sight → `{DayPeriod} {connector} {place}`; Side Quest → `{DayPeriod}: {webTitle}`
+ * or `{DayPeriod} Side Quest!`; Food & Drink → `{DayPeriod} at {title}`.
+ */
+export function buildPeriodHeader(period, activity) {
+  const dayPeriod = buildPeriodDayName(period);
   if (!activity) return dayPeriod;
 
   if (activity.type === "sight") {
@@ -237,7 +254,7 @@ export function activityDescription(activity) {
 
 function renderStats(activity) {
   if (activity?.type !== "foodDrink") return "";
-  return `<ul class="stats"><li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Explore in the app →</a></li></ul>`;
+  return `<ul class="stats"><li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download the app →</a></li></ul>`;
 }
 
 function renderAppPlug(activity) {
@@ -247,22 +264,118 @@ function renderAppPlug(activity) {
   return `<div class="app-plug">${plugHtml}<p class="app-plug-link"><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download the app →</a></p></div>`;
 }
 
-function renderHero(activity) {
-  const proxyPath = buildHeroProxyPath(activity?.heroImage);
-  if (proxyPath) {
-    return `<img class="hero" src="${escapeHtml(proxyPath)}" alt="" loading="lazy">`;
-  }
-  return `<div class="hero hero-placeholder" aria-hidden="true"></div>`;
+const CITY_CURRENCY = {
+  tokyo: "¥",
+  paris: "€",
+  nyc: "$",
+  "new-york": "$",
+};
+
+export function resolveCurrencySymbol(activity, city) {
+  const fromActivity = activity?.currency?.trim();
+  if (fromActivity) return fromActivity;
+  const fromTier = activity?.priceRange?.match(/[¥€$]/)?.[0];
+  if (fromTier) return fromTier;
+  return CITY_CURRENCY[city?.webCityId] ?? "$";
 }
 
-function renderCaption(activity) {
-  const caption = activity?.imageCaption?.trim();
-  if (!caption) return "";
-  const sourceUrl = normalizeWebsiteUrl(activity.imageSourceWebsite);
-  if (sourceUrl) {
-    return `<p class="image-caption"><a href="${escapeHtml(sourceUrl)}" rel="noopener noreferrer">${escapeHtml(caption)}</a></p>`;
+export function currencyEmoji(currencySymbol) {
+  if (currencySymbol === "¥") return "💴";
+  if (currencySymbol === "€") return "💶";
+  return "💵";
+}
+
+/** iOS AdvView / AdventureView / ChallengeView hrs notation, with web-specific rules:
+ * - exactly 1 hour → "1 hr"
+ * - under 1 hour → "X min" (whole minutes)
+ * - other whole hours → "N hrs"
+ * - fractional ≥ 1 hour → "X.X hrs"
+ */
+export function formatDurationHoursLabel(hours) {
+  const n = Number(hours);
+  if (!Number.isFinite(n) || n < 0) return "";
+  if (n > 0 && n < 1) {
+    const minutes = Math.round(n * 60);
+    return `${minutes} min`;
   }
-  return `<p class="image-caption">${escapeHtml(caption)}</p>`;
+  if (n === 1) return "1 hr";
+  if (n % 1 === 0) return `${Math.trunc(n)} hrs`;
+  return `${n.toFixed(1)} hrs`;
+}
+
+export function renderInfoSection(activity, { city, periodIndex } = {}) {
+  if (!activity) return "";
+  const rows = [];
+
+  const priceRange = activity.priceRange?.trim();
+  if (priceRange) {
+    const emoji = currencyEmoji(resolveCurrencySymbol(activity, city));
+    rows.push(
+      `<div class="info-row"><span class="info-symbol" aria-hidden="true">${emoji}</span><span class="info-text">Price range: ${escapeHtml(priceRange)}</span></div>`
+    );
+  }
+
+  const durationLabel = formatDurationHoursLabel(activity.durationHours);
+  if (durationLabel) {
+    rows.push(
+      `<div class="info-row"><span class="info-symbol" aria-hidden="true">⏱️</span><span class="info-text">Duration: ${escapeHtml(durationLabel)}</span></div>`
+    );
+  }
+
+  if (activity.type === "sight" || activity.type === "sideQuest") {
+    const setting = activity.setting?.trim();
+    if (setting) {
+      rows.push(
+        `<div class="info-row"><span class="info-symbol" aria-hidden="true">🏡</span><span class="info-text">Setting: ${escapeHtml(setting)}</span></div>`
+      );
+    }
+  }
+
+  const hasLeoMagicPct = Number.isFinite(Number(activity.leoMagicPct));
+  if (hasLeoMagicPct) {
+    const pct = Number(activity.leoMagicPct);
+    const magicId = `leo-magic-${periodIndex ?? "x"}`;
+    const symbol = renderLeoMagicIndicator({
+      id: magicId,
+      pct,
+      size: 22,
+      className: "leo-magic info-leo-magic",
+    });
+    const label = conditionsLabelFromLeoMagicPct(pct);
+    rows.push(
+      `<div class="info-row"><span class="info-symbol">${symbol}</span><span class="info-text">Conditions: ${escapeHtml(label)}</span></div>`
+    );
+  }
+
+  if (!rows.length) return "";
+  return `<div class="info-section"><hr class="info-divider">${rows.join('<hr class="info-divider">')}</div>`;
+}
+
+function renderHero(activity) {
+  const proxyPath = buildHeroProxyPath(activity?.heroImage);
+  const media = proxyPath
+    ? `<img class="hero" src="${escapeHtml(proxyPath)}" alt="" loading="lazy">`
+    : `<div class="hero hero-placeholder" aria-hidden="true"></div>`;
+
+  const caption = activity?.imageCaption?.trim();
+  if (!caption) {
+    return `<div class="hero-frame">${media}</div>`;
+  }
+
+  const sourceUrl = normalizeWebsiteUrl(activity.imageSourceWebsite);
+  const creditBody = sourceUrl
+    ? `<a href="${escapeHtml(sourceUrl)}" rel="noopener noreferrer">${escapeHtml(caption)}</a>`
+    : escapeHtml(caption);
+
+  return `<div class="hero-frame">
+      ${media}
+      <div class="hero-credit">
+        <button type="button" class="hero-credit-btn" aria-label="Image source" aria-expanded="false">
+          <span class="hero-credit-icon" aria-hidden="true">i</span>
+        </button>
+        <p class="hero-credit-popover">${creditBody}</p>
+      </div>
+    </div>`;
 }
 
 function periodSectionId(period) {
@@ -271,8 +384,7 @@ function periodSectionId(period) {
 }
 
 function dayPeriodNavName(period) {
-  const { periodName } = parsePeriodLabel(period?.label);
-  return formatHeroPeriodName(periodName, period?.start) || periodName || "Today";
+  return buildPeriodDayName(period);
 }
 
 function renderPeriodWeather(period) {
@@ -281,7 +393,7 @@ function renderPeriodWeather(period) {
   return `<p class="band-meta-weather">${escapeHtml(weatherLine)}</p>`;
 }
 
-function renderPeriod(period) {
+function renderPeriod(period, { city } = {}) {
   const activity = period.activity;
   const sectionId = periodSectionId(period);
   const weather = renderPeriodWeather(period);
@@ -295,25 +407,18 @@ function renderPeriod(period) {
     </section>`;
   }
 
-  const whyNow = activity.whyTeaser?.trim();
-  const priceRange = activity.priceRange?.trim() || "";
   const description = activityDescription(activity);
-  const priceRangeHtml = priceRange
-    ? `<p class="price-range">Price range: ${escapeHtml(priceRange)}</p>`
-    : "";
 
   return `
     <section class="period" id="${escapeHtml(sectionId)}">
       <hr class="period-divider">
       ${renderHero(activity)}
-      ${renderCaption(activity)}
       ${weather}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
-      ${whyNow ? `<p class="why-now">Why now: ${escapeHtml(whyNow)}</p>` : ""}
-      ${priceRangeHtml}
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderStats(activity)}
       ${renderAppPlug(activity)}
+      ${renderInfoSection(activity, { city, periodIndex: period.index })}
     </section>`;
 }
 
@@ -350,7 +455,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   } else if (!pack) {
     body = `<p class="muted">No plan available for ${escapeHtml(cityName)} yet.</p>`;
   } else {
-    body = periods.map((period) => renderPeriod(period)).join("");
+    body = periods.map((period) => renderPeriod(period, { city })).join("");
   }
 
   return `<!DOCTYPE html>
@@ -360,6 +465,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} — Leo</title>
   ${navAssetTags()}
+  ${leoMagicAssetTags()}
   <style>
     * { box-sizing: border-box; }
     body {
@@ -446,25 +552,126 @@ export function renderCityTodayPage({ city, pack, error }) {
       text-decoration: underline;
       text-underline-offset: 2px;
     }
+    .info-section {
+      margin: 0.75rem 0 1rem;
+    }
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0;
+      color: #333;
+    }
+    .info-symbol {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .info-text {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .info-divider {
+      border: 0;
+      border-top: 1px solid #ddd;
+      margin: 0.65rem 0;
+    }
+    .hero-frame {
+      position: relative;
+      margin: 0 0 0.5rem;
+    }
     .hero {
       width: 100%;
       aspect-ratio: 16 / 9;
       object-fit: cover;
       display: block;
-      margin: 0 0 0.5rem;
+      margin: 0;
       background: #eee;
     }
     .hero-placeholder {
       min-height: 160px;
       background: linear-gradient(135deg, #ececec, #f7f7f7);
     }
-    .image-caption {
+    .hero-credit {
+      position: absolute;
+      left: 0.55rem;
+      right: 0.55rem;
+      bottom: 0.55rem;
       margin: 0;
-      font-size: 0.85rem;
-      color: #666;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      pointer-events: none;
     }
-    .image-caption a {
+    .hero-credit-btn {
+      pointer-events: auto;
+      cursor: pointer;
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 0;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    .hero-credit-icon {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 0.85rem;
+      font-style: italic;
+      font-weight: 700;
+      line-height: 1;
+      transform: translateY(-0.5px);
+    }
+    .hero-credit-popover {
+      pointer-events: auto;
+      display: none;
+      position: absolute;
+      left: auto;
+      right: 0;
+      bottom: calc(1.5rem + 0.4rem);
+      margin: 0;
+      padding: 0.45rem 0.6rem;
+      width: max-content;
+      max-width: 100%;
+      box-sizing: border-box;
+      background: rgba(17, 17, 17, 0.92);
+      color: #fff;
+      font-size: 0.8rem;
+      line-height: 1.3;
+      border-radius: 6px;
+      white-space: normal;
+      text-align: right;
+    }
+    .hero-credit-popover::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      height: 0.5rem;
+    }
+    .hero-credit-popover a {
       color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .hero-credit.is-open .hero-credit-popover {
+      display: block;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .hero-credit:hover .hero-credit-popover,
+      .hero-credit:focus-within .hero-credit-popover {
+        display: block;
+      }
     }
     .muted { color: #777; }
     .error { color: #a00; }
@@ -478,6 +685,29 @@ export function renderCityTodayPage({ city, pack, error }) {
     <p class="intro">${escapeHtml(intro)}</p>
     ${body}
   </main>
+  <script>
+    (function () {
+      function setOpen(credit, open) {
+        credit.classList.toggle("is-open", open);
+        const btn = credit.querySelector(".hero-credit-btn");
+        if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".hero-credit-btn");
+        if (btn) {
+          const credit = btn.closest(".hero-credit");
+          if (!credit) return;
+          e.preventDefault();
+          setOpen(credit, !credit.classList.contains("is-open"));
+          return;
+        }
+        document.querySelectorAll(".hero-credit.is-open").forEach((credit) => {
+          if (!credit.contains(e.target)) setOpen(credit, false);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
+

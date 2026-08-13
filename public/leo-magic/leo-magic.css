@@ -1,0 +1,65 @@
+/* Shared LeoMagic indicator — used by homepage + Today pages */
+
+:root {
+  --leo-green: #1ba665;
+  --leo-green-lightest: #f4fbf7;
+  --leo-yellow: #f2b950;
+  --leo-yellow-lightest: #fefcf6;
+  --leo-red: #f24130;
+  --leo-red-lightest: #fef6f5;
+}
+
+.leo-magic {
+  display: block;
+  width: var(--leo-magic-size, 36px);
+  height: var(--leo-magic-size, 36px);
+  flex-shrink: 0;
+  color: var(--leo-magic-color, var(--leo-green));
+}
+
+.leo-magic-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.leo-magic-track {
+  stroke: var(--leo-magic-track, var(--leo-green-lightest));
+}
+
+.leo-magic-progress {
+  stroke: currentColor;
+  transition: stroke-dasharray 400ms ease;
+}
+
+.leo-magic-face {
+  color: inherit;
+  pointer-events: none;
+}
+
+.leo-magic-face-smile,
+.leo-magic-face-heart {
+  transition: opacity 200ms ease;
+}
+
+/* Excellent & Good → LeoGreen */
+.leo-magic[data-tone="good"] {
+  --leo-magic-color: var(--leo-green);
+  --leo-magic-track: var(--leo-green-lightest);
+  color: var(--leo-green);
+}
+
+/* OK → LeoYellow */
+.leo-magic[data-tone="ok"] {
+  --leo-magic-color: var(--leo-yellow);
+  --leo-magic-track: var(--leo-yellow-lightest);
+  color: var(--leo-yellow);
+}
+
+/* Poor → LeoRed */
+.leo-magic[data-tone="poor"] {
+  --leo-magic-color: var(--leo-red);
+  --leo-magic-track: var(--leo-red-lightest);
+  color: var(--leo-red);
+}

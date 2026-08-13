@@ -1113,41 +1113,6 @@ p {
   transition: width 600ms ease;
 }
 
-.leo-magic {
-  display: block;
-  width: var(--leo-magic-size, 36px);
-  height: var(--leo-magic-size, 36px);
-  flex-shrink: 0;
-  color: var(--leo-blue);
-}
-
-.leo-magic-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.leo-magic-track {
-  /* iOS blue colorway: LeoColors.leoBlueLightest */
-  stroke: var(--leo-blue-lightest);
-}
-
-.leo-magic-progress {
-  stroke: var(--leo-blue);
-  transition: stroke-dasharray 400ms ease;
-}
-
-.leo-magic-face {
-  color: inherit;
-  pointer-events: none;
-}
-
-.leo-magic-face-smile,
-.leo-magic-face-heart {
-  transition: opacity 200ms ease;
-}
-
 /* Feature 03 — Time Machine activity stack (tm-stack-1)
    One footprint: #feature-03 .feature-visual uses --feature-visual-ratio
    (1/1 desktop, 6/3 mobile) like feature-01 .map-scene. Contents scale via cqw/cqh. */

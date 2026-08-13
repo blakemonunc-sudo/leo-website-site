@@ -306,10 +306,18 @@
   let matchAnimToken = 0;
 
   // iOS LeoMagicIndicator: heart when fillPercentage > 0.75, else smile
+  // Tone colors: Excellent/Good → green, OK → yellow, Poor → red
+  function leoMagicTone(pct) {
+    if (pct >= 60) return "good";
+    if (pct >= 40) return "ok";
+    return "poor";
+  }
+
   function setSmiley(pct) {
     if (!matchSmiley || !matchProgress) return;
     const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
     matchSmiley.dataset.pct = String(clamped);
+    matchSmiley.dataset.tone = leoMagicTone(clamped);
     matchProgress.style.strokeDasharray = `${clamped} 100`;
     const useHeart = clamped > 75;
     if (matchSmile) matchSmile.toggleAttribute("hidden", useHeart);

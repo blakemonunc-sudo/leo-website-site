@@ -10,12 +10,15 @@ import {
   buildSideQuestDescriptionSentence,
   activityDescription,
   capitalizeSentenceStart,
+  buildPeriodDayName,
   buildPeriodHeader,
   formatHeroPeriodName,
   formatUpdatedAt,
   normalizeWebsiteUrl,
   APP_STORE_URL,
   buildPeriodWeatherLine,
+  formatDurationHoursLabel,
+  conditionsLabelFromLeoMagicPct,
 } from "../src/render-today.js";
 import {
   activityBandTitle,
@@ -24,6 +27,26 @@ import {
 } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
 import { cityTodayPath, parseCityTodayPath } from "../config/cities.js";
+
+test("formatDurationHoursLabel matches website duration notation", () => {
+  assert.equal(formatDurationHoursLabel(2), "2 hrs");
+  assert.equal(formatDurationHoursLabel(1), "1 hr");
+  assert.equal(formatDurationHoursLabel(1.5), "1.5 hrs");
+  assert.equal(formatDurationHoursLabel(0.75), "45 min");
+  assert.equal(formatDurationHoursLabel(0.5), "30 min");
+  assert.equal(formatDurationHoursLabel(NaN), "");
+});
+
+test("conditionsLabelFromLeoMagicPct maps fill bands", () => {
+  assert.equal(conditionsLabelFromLeoMagicPct(100), "Excellent");
+  assert.equal(conditionsLabelFromLeoMagicPct(75), "Excellent");
+  assert.equal(conditionsLabelFromLeoMagicPct(74.99), "Good");
+  assert.equal(conditionsLabelFromLeoMagicPct(60), "Good");
+  assert.equal(conditionsLabelFromLeoMagicPct(59.99), "OK");
+  assert.equal(conditionsLabelFromLeoMagicPct(40), "OK");
+  assert.equal(conditionsLabelFromLeoMagicPct(39.99), "Poor");
+  assert.equal(conditionsLabelFromLeoMagicPct(0), "Poor");
+});
 
 test("formatHeroPeriodName keeps DayPeriod names and special-cases Coffee", () => {
   assert.equal(formatHeroPeriodName("Morning", "09:00"), "Morning");
@@ -259,6 +282,13 @@ test("buildPeriodHeader special-cases Coffee by start hour", () => {
   );
 });
 
+test("buildPeriodDayName special-cases Coffee by start hour", () => {
+  assert.equal(buildPeriodDayName({ label: "Clear · Coffee", start: "09:00" }), "Morning Coffee");
+  assert.equal(buildPeriodDayName({ label: "Clear · Coffee", start: "14:00" }), "Afternoon Coffee");
+  assert.equal(buildPeriodDayName({ label: "Clear · Coffee" }), "Coffee");
+  assert.equal(buildPeriodDayName({ label: "Clear · Lunch" }), "Lunch");
+});
+
 test("formatUpdatedAt uses city timezone date only", () => {
   assert.equal(formatUpdatedAt("2026-07-07T15:30:00.000Z", "Asia/Tokyo"), "Jul 08, 2026");
   assert.equal(formatUpdatedAt("2026-08-10T15:00:00.000Z", "Asia/Tokyo"), "Aug 11, 2026");
@@ -311,6 +341,10 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             appPlug: "Open Leo for more sights nearby.",
             whyGo: "Stroll the lawns and glasshouse.",
             priceRange: "¥¥",
+            currency: "¥",
+            leoMagicPct: 82,
+            durationHours: 2,
+            setting: "Mixed Inside & Outside",
             website: "https://www.env.go.jp/garden/shinjukugyoen/",
             latitude: 35.6852,
             longitude: 139.71,
@@ -344,6 +378,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             webDescription: "Follow the loop and see the city shift with every stop.",
             appPlug: "Play this challenge and more in Leo.",
             webTitle: "Ride the Yamanote",
+            durationHours: 1.5,
+            setting: "Outside",
             whyGo: "Ride somewhere unexpected.",
             whyTeaser: "You'll be partly inside in hot weather.",
           },
@@ -357,12 +393,16 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, />Jul 08, 2026</);
   assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
-  assert.match(html, /Morning at Shinjuku Gyoen/);
   assert.match(html, /band-meta-weather">☀️ 72°F</);
   assert.match(html, /band-meta-weather">☀️ 82°F</);
   assert.match(html, /band-meta-weather">☀️ 86°F</);
-  assert.match(html, /Why now: You&#39;ll be outside in pleasant weather\./);
-  assert.match(html, /Price range: ¥¥/);
+  assert.match(html, /period-title">Morning at Shinjuku Gyoen</);
+  assert.match(html, /period-title">Lunch at Afuri Lumine</);
+  assert.match(html, /period-title">Afternoon: Ride the Yamanote</);
+  assert.doesNotMatch(html, /Afternoon Side Quest!/);
+  assert.doesNotMatch(html, /period-meta/);
+  assert.doesNotMatch(html, /period-heading/);
+  assert.doesNotMatch(html, /Why now:/);
   assert.doesNotMatch(html, /price-cost-debug/);
   assert.doesNotMatch(html, /costOfEntry/);
   assert.doesNotMatch(html, /Price range: —/);
@@ -372,22 +412,38 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, /Open Leo for more sights nearby\./);
   assert.match(html, /Download the app →/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /Explore in the app/);
   assert.doesNotMatch(html, /Get directions/);
   assert.doesNotMatch(html, /Visit website/);
   assert.doesNotMatch(html, /maps\.google\.com/);
   assert.match(html, new RegExp(`/img/${imageId}`));
   assert.match(html, /Photo by Leo/);
+  assert.match(html, /hero-credit-btn/);
+  assert.match(html, /aria-label="Image source"/);
+  assert.doesNotMatch(html, /image-caption/);
+  assert.match(html, /example\.com\/photo/);
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?app-plug`
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section`
     )
   );
-  assert.match(html, /Lunch at Afuri Lumine/);
+  assert.match(html, /info-section[\s\S]*?💴[\s\S]*?Price range: ¥¥/);
+  assert.match(html, /info-section[\s\S]*?⏱️[\s\S]*?Duration: 2 hrs/);
+  assert.match(html, /info-section[\s\S]*?🏡[\s\S]*?Setting: Mixed Inside &amp; Outside/);
+  assert.match(
+    html,
+    /info-section[\s\S]*?leo-magic[\s\S]*?Conditions: Excellent/
+  );
+  assert.match(html, /data-pct="82"/);
+  assert.match(html, /data-tone="good"/);
+  assert.match(html, /leo-magic\/leo-magic\.css/);
+  assert.match(html, /stroke-width="2\.25"/);
+  assert.match(
+    html,
+    /info-divider[\s\S]*?Price range: ¥¥[\s\S]*?info-divider[\s\S]*?Duration: 2 hrs[\s\S]*?info-divider[\s\S]*?Setting: Mixed Inside &amp; Outside[\s\S]*?info-divider[\s\S]*?Conditions: Excellent/
+  );
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
-  assert.match(html, /Explore in the app →/);
-  assert.match(html, /Afternoon: Ride the Yamanote/);
-  assert.doesNotMatch(html, /Afternoon Side Quest!/);
   assert.match(html, /Follow the loop and see the city shift with every stop\./);
   assert.doesNotMatch(html, /Follow the Yamanote Line\./);
   assert.match(html, /Play this challenge and more in Leo\./);
