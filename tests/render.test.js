@@ -171,22 +171,31 @@ test("buildSideQuestDescriptionSentence matches ChallengeTeaser", () => {
   );
 });
 
-test("activityDescription uses constructed sentences for sight and sideQuest", () => {
+test("activityDescription uses webDescription for sight and sideQuest", () => {
   assert.equal(
     activityDescription({
       type: "sight",
+      webDescription: "Long-form sight copy for the web.",
       intro: "Unwind at Shinjuku Gyoen, a 144-acre campus.",
       whyGo: "Should not appear.",
     }),
-    "Unwind at Shinjuku Gyoen, a 144-acre campus."
+    "Long-form sight copy for the web."
   );
   assert.equal(
     activityDescription({
       type: "sideQuest",
+      webDescription: "Long-form side quest copy for the web.",
       teaser: "ride the JR Yamanote Line",
       whyGo: "Should not appear.",
     }),
-    "Ride the JR Yamanote Line."
+    "Long-form side quest copy for the web."
+  );
+  assert.equal(
+    activityDescription({
+      type: "sight",
+      intro: "Should not appear when webDescription is missing.",
+    }),
+    ""
   );
   assert.equal(
     activityDescription({
@@ -204,6 +213,13 @@ test("buildPeriodHeader formats by activity type", () => {
       { type: "sight", dayPeriodConnector: "at", place: "Shinjuku Gyoen" }
     ),
     "Morning at Shinjuku Gyoen"
+  );
+  assert.equal(
+    buildPeriodHeader(
+      { label: "Clear · Afternoon" },
+      { type: "sideQuest", title: "Station", webTitle: "Ride the rails" }
+    ),
+    "Afternoon: Ride the rails"
   );
   assert.equal(
     buildPeriodHeader({ label: "Clear · Afternoon" }, { type: "sideQuest", title: "Station" }),
@@ -291,6 +307,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             teaserConnector: "a",
             teaser: "144-acre campus of pristine gardens",
             intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
+            webDescription: "Shinjuku Gyoen is a 144-acre national garden in central Tokyo.",
+            appPlug: "Open Leo for more sights nearby.",
             whyGo: "Stroll the lawns and glasshouse.",
             priceRange: "¥¥",
             website: "https://www.env.go.jp/garden/shinjukugyoen/",
@@ -323,6 +341,9 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             type: "sideQuest",
             title: "Shinjuku Station",
             teaser: "Follow the Yamanote Line",
+            webDescription: "Follow the loop and see the city shift with every stop.",
+            appPlug: "Play this challenge and more in Leo.",
+            webTitle: "Ride the Yamanote",
             whyGo: "Ride somewhere unexpected.",
             whyTeaser: "You'll be partly inside in hot weather.",
           },
@@ -345,26 +366,31 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /price-cost-debug/);
   assert.doesNotMatch(html, /costOfEntry/);
   assert.doesNotMatch(html, /Price range: —/);
-  assert.match(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens/);
+  assert.match(html, /Shinjuku Gyoen is a 144-acre national garden in central Tokyo\./);
+  assert.doesNotMatch(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens/);
   assert.doesNotMatch(html, /Stroll the lawns and glasshouse/);
-  assert.match(html, /Explore in the app →/);
+  assert.match(html, /Open Leo for more sights nearby\./);
+  assert.match(html, /Download the app →/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(html, /Get directions →/);
-  assert.match(html, /maps\.google\.com\/\?q=35\.6852%2C139\.71/);
-  assert.doesNotMatch(html, /35\.6852, 139\.71/);
-  assert.match(html, /Visit website →/);
+  assert.doesNotMatch(html, /Get directions/);
+  assert.doesNotMatch(html, /Visit website/);
+  assert.doesNotMatch(html, /maps\.google\.com/);
   assert.match(html, new RegExp(`/img/${imageId}`));
   assert.match(html, /Photo by Leo/);
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?stats`
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?image-caption[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?why-now[\\s\\S]*?price-range[\\s\\S]*?description[\\s\\S]*?app-plug`
     )
   );
   assert.match(html, /Lunch at Afuri Lumine/);
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
-  assert.match(html, /Afternoon Side Quest!/);
-  assert.match(html, /Follow the Yamanote Line\./);
+  assert.match(html, /Explore in the app →/);
+  assert.match(html, /Afternoon: Ride the Yamanote/);
+  assert.doesNotMatch(html, /Afternoon Side Quest!/);
+  assert.match(html, /Follow the loop and see the city shift with every stop\./);
+  assert.doesNotMatch(html, /Follow the Yamanote Line\./);
+  assert.match(html, /Play this challenge and more in Leo\./);
   assert.doesNotMatch(html, /Ride somewhere unexpected/);
   assert.doesNotMatch(html, /activity-copy/);
   assert.doesNotMatch(html, /imagedelivery\.net/);

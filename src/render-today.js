@@ -179,6 +179,8 @@ export function buildPeriodHeader(period, activity) {
     return place ? `${dayPeriod} ${connector} ${place}` : dayPeriod;
   }
   if (activity.type === "sideQuest") {
+    const webTitle = activity.webTitle?.trim();
+    if (webTitle) return `${dayPeriod}: ${webTitle}`;
     return `${dayPeriod} Side Quest!`;
   }
   if (activity.type === "foodDrink") {
@@ -227,35 +229,22 @@ export function buildSideQuestDescriptionSentence(activity) {
 export function activityDescription(activity) {
   if (!activity) return "";
   if (activity.type === "foodDrink") return activity.description?.trim() ?? "";
-  if (activity.type === "sight") return buildSightDescriptionSentence(activity);
-  if (activity.type === "sideQuest") return buildSideQuestDescriptionSentence(activity);
+  if (activity.type === "sight" || activity.type === "sideQuest") {
+    return activity.webDescription?.trim() ?? "";
+  }
   return "";
 }
 
-function hasValidCoordinates(lat, lon) {
-  return Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
+function renderStats(activity) {
+  if (activity?.type !== "foodDrink") return "";
+  return `<ul class="stats"><li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Explore in the app →</a></li></ul>`;
 }
 
-function renderStats(activity) {
-  const rows = [
-    `<li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Explore in the app →</a></li>`,
-  ];
-
-  if (hasValidCoordinates(activity?.latitude, activity?.longitude)) {
-    const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(`${activity.latitude},${activity.longitude}`)}`;
-    rows.push(
-      `<li><a href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">Get directions →</a></li>`
-    );
-  }
-
-  const website = normalizeWebsiteUrl(activity?.website);
-  if (website) {
-    rows.push(
-      `<li><a href="${escapeHtml(website)}" rel="noopener noreferrer">Visit website →</a></li>`
-    );
-  }
-
-  return `<ul class="stats">${rows.join("")}</ul>`;
+function renderAppPlug(activity) {
+  if (activity?.type !== "sight" && activity?.type !== "sideQuest") return "";
+  const plug = activity.appPlug?.trim() ?? "";
+  const plugHtml = plug ? `<p class="app-plug-text">${escapeHtml(plug)}</p>` : "";
+  return `<div class="app-plug">${plugHtml}<p class="app-plug-link"><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download the app →</a></p></div>`;
 }
 
 function renderHero(activity) {
@@ -324,6 +313,7 @@ function renderPeriod(period) {
       ${priceRangeHtml}
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderStats(activity)}
+      ${renderAppPlug(activity)}
     </section>`;
 }
 
@@ -424,6 +414,9 @@ export function renderCityTodayPage({ city, pack, error }) {
       margin: 0 0 0.5rem;
       color: #333;
     }
+    .description {
+      white-space: pre-line;
+    }
     .stats {
       list-style: none;
       padding: 0;
@@ -433,6 +426,22 @@ export function renderCityTodayPage({ city, pack, error }) {
       margin: 0.25rem 0;
     }
     .stats a {
+      color: #111;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .app-plug {
+      margin: 0.75rem 0 1rem;
+    }
+    .app-plug-text {
+      margin: 0 0 0.5rem;
+      color: #333;
+      white-space: pre-line;
+    }
+    .app-plug-link {
+      margin: 0;
+    }
+    .app-plug-link a {
       color: #111;
       text-decoration: underline;
       text-underline-offset: 2px;
