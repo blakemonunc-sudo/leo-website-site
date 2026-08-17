@@ -9,6 +9,7 @@ import {
   formatAvgTemp,
   formatHeroPeriodName,
   parsePeriodLabel,
+  periodHasActivity,
 } from "./render-today.js";
 
 const TYPE_TO_CALLING = {
@@ -130,8 +131,9 @@ export function activityBandTitle(activity) {
  * Normalize a Tokyo today-pack into hero period bands.
  */
 export function buildHeroPeriods(pack) {
-  const source = [...(pack?.periods ?? [])].sort((a, b) => a.index - b.index);
-  const periods = source.length ? source : FALLBACK_PERIODS;
+  const raw = [...(pack?.periods ?? [])].sort((a, b) => a.index - b.index);
+  const source = raw.filter(periodHasActivity);
+  const periods = raw.length ? source : FALLBACK_PERIODS;
 
   return periods.map((period, i) => {
     const { condition, periodName } = parsePeriodLabel(period.label);

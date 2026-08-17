@@ -19,6 +19,7 @@ import {
   buildPeriodWeatherLine,
   formatDurationHoursLabel,
   conditionsLabelFromLeoMagicPct,
+  periodHasActivity,
 } from "../src/render-today.js";
 import {
   activityBandTitle,
@@ -453,6 +454,43 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /cfimg:\/\//);
 });
 
+test("renderCityTodayPage hides day periods with no activity", () => {
+  const html = renderCityTodayPage({
+    city: { webCityId: "paris", name: "Paris", timezone: "Europe/Paris" },
+    pack: {
+      localDate: "2026-08-17",
+      generatedAt: "2026-08-17T19:40:52.979Z",
+      periods: [
+        {
+          index: 1,
+          label: "Overcast · Breakfast",
+          activity: { type: "foodDrink", title: "Babka Zana" },
+        },
+        {
+          index: 5,
+          label: "Partly Cloudy · Night",
+          tempMinC: 24.9,
+          tempMaxC: 24.9,
+        },
+      ],
+    },
+    error: null,
+  });
+
+  assert.match(html, /period-title">Breakfast at Babka Zana</);
+  assert.match(html, /href="#period-1">Breakfast</);
+  assert.doesNotMatch(html, /No activity scheduled/);
+  assert.doesNotMatch(html, /id="period-5"/);
+  assert.doesNotMatch(html, /href="#period-5"/);
+  assert.doesNotMatch(html, /Night at /);
+});
+
+test("periodHasActivity is false when activity is missing", () => {
+  assert.equal(periodHasActivity({ index: 5, label: "Night" }), false);
+  assert.equal(periodHasActivity({ activity: { type: "sight", title: "Louvre" } }), true);
+  assert.equal(periodHasActivity(null), false);
+});
+
 test("renderTodayPage delegates to city page for first pack result", () => {
   const html = renderTodayPage([
     {
@@ -587,6 +625,31 @@ test("buildHeroPeriods special-cases Coffee by start hour", () => {
   assert.equal(periods[0].subtitle, "☀️ 70°F | Morning Coffee");
   assert.equal(periods[1].periodName, "Afternoon Coffee");
   assert.equal(periods[1].subtitle, "☀️ 77°F | Afternoon Coffee");
+});
+
+test("buildHeroPeriods omits day periods with no activity", () => {
+  const periods = buildHeroPeriods({
+    periods: [
+      {
+        index: 1,
+        label: "Clear · Morning",
+        start: "09:00",
+        tempMinC: 20,
+        tempMaxC: 22,
+        activity: { type: "sight", title: "Shinjuku Gyoen", intro: "Unwind at Shinjuku Gyoen." },
+      },
+      {
+        index: 5,
+        label: "Partly Cloudy · Night",
+        start: "21:00",
+        tempMinC: 24,
+        tempMaxC: 25,
+      },
+    ],
+  });
+  assert.equal(periods.length, 1);
+  assert.equal(periods[0].title, "Shinjuku Gyoen");
+  assert.doesNotMatch(periods.map((p) => p.periodName).join(" "), /Night/);
 });
 
 test("buildHeroPeriods falls back when pack has no periods", () => {

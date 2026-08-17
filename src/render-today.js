@@ -58,6 +58,11 @@ export function parsePeriodLabel(label) {
   return { condition: label ?? "", periodName: "" };
 }
 
+/** True when a pack period has a scheduled activity to show. */
+export function periodHasActivity(period) {
+  return Boolean(period?.activity);
+}
+
 /** Weather symbol + avg °F for homepage bands and Today period headers. */
 export function buildPeriodWeatherLine(period) {
   const { condition } = parsePeriodLabel(period?.label);
@@ -395,17 +400,9 @@ function renderPeriodWeather(period) {
 
 function renderPeriod(period, { city } = {}) {
   const activity = period.activity;
+  if (!activity) return "";
   const sectionId = periodSectionId(period);
   const weather = renderPeriodWeather(period);
-  if (!activity) {
-    return `
-    <section class="period" id="${escapeHtml(sectionId)}">
-      <hr class="period-divider">
-      ${weather}
-      <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, null))}</h2>
-      <p class="muted">No activity scheduled</p>
-    </section>`;
-  }
 
   const description = activityDescription(activity);
 
@@ -443,7 +440,9 @@ export function renderCityTodayPage({ city, pack, error }) {
   const updated = formatUpdatedAt(pack?.generatedAt, city?.timezone);
   const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for every period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
 
-  const periods = pack ? [...(pack.periods ?? [])].sort((a, b) => a.index - b.index) : [];
+  const periods = pack
+    ? [...(pack.periods ?? [])].sort((a, b) => a.index - b.index).filter(periodHasActivity)
+    : [];
   const periodLinks = periods.map((period) => ({
     name: dayPeriodNavName(period),
     href: `#${periodSectionId(period)}`,
