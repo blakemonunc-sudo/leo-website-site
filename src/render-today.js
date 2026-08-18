@@ -579,7 +579,7 @@ export function renderCityTodayPage({ city, pack, error }) {
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      border-radius: 20%;
+      border-radius: 10pt;
       overflow: hidden;
     }
     .period-action-label,
