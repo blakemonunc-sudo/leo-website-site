@@ -394,9 +394,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, />Jul 08, 2026</);
   assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
-  assert.match(html, /band-meta-weather">☀️ 72°F</);
-  assert.match(html, /band-meta-weather">☀️ 82°F</);
-  assert.match(html, /band-meta-weather">☀️ 86°F</);
+  assert.doesNotMatch(html, /band-meta-weather/);
+  assert.doesNotMatch(html, /☀️ 72°F/);
   assert.match(html, /period-title">Morning at Shinjuku Gyoen</);
   assert.match(html, /period-title">Lunch at Afuri Lumine</);
   assert.match(html, /period-title">Afternoon: Ride the Yamanote</);
@@ -426,7 +425,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?band-meta-weather[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section`
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section`
     )
   );
   assert.match(html, /info-section[\s\S]*?💴[\s\S]*?Price range: ¥¥/);

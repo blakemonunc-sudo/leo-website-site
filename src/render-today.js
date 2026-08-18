@@ -63,7 +63,7 @@ export function periodHasActivity(period) {
   return Boolean(period?.activity);
 }
 
-/** Weather symbol + avg °F for homepage bands and Today period headers. */
+/** Weather symbol + avg °F for homepage period bands. */
 export function buildPeriodWeatherLine(period) {
   const { condition } = parsePeriodLabel(period?.label);
   const hasCondition = Boolean(String(condition ?? "").trim());
@@ -392,17 +392,10 @@ function dayPeriodNavName(period) {
   return buildPeriodDayName(period);
 }
 
-function renderPeriodWeather(period) {
-  const weatherLine = buildPeriodWeatherLine(period);
-  if (!weatherLine) return "";
-  return `<p class="band-meta-weather">${escapeHtml(weatherLine)}</p>`;
-}
-
 function renderPeriod(period, { city } = {}) {
   const activity = period.activity;
   if (!activity) return "";
   const sectionId = periodSectionId(period);
-  const weather = renderPeriodWeather(period);
 
   const description = activityDescription(activity);
 
@@ -410,7 +403,6 @@ function renderPeriod(period, { city } = {}) {
     <section class="period" id="${escapeHtml(sectionId)}">
       <hr class="period-divider">
       ${renderHero(activity)}
-      ${weather}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderStats(activity)}
@@ -501,13 +493,6 @@ export function renderCityTodayPage({ city, pack, error }) {
       border: 0;
       border-top: 1px solid #ddd;
       margin: 0 0 1rem;
-    }
-    .band-meta-weather {
-      margin: 0 0 0.25rem;
-      font-size: 0.95rem;
-      color: #666;
-      letter-spacing: 0.01em;
-      line-height: 1.15;
     }
     .period-title {
       margin: 0 0 0.75rem;
