@@ -395,7 +395,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Updated Jul 08/);
   assert.match(html, /Tokyo changes by the hour/);
   assert.doesNotMatch(html, /band-meta-weather/);
-  assert.doesNotMatch(html, /☀️ 72°F/);
+  assert.match(html, /☀️ 72°F/);
   assert.match(html, /period-title">Morning at Shinjuku Gyoen</);
   assert.match(html, /period-title">Lunch at Afuri Lumine</);
   assert.match(html, /period-title">Afternoon: Ride the Yamanote</);
@@ -410,8 +410,15 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens/);
   assert.doesNotMatch(html, /Stroll the lawns and glasshouse/);
   assert.match(html, /Open Leo for more sights nearby\./);
-  assert.match(html, /Download the app →/);
+  assert.match(html, /period-action--download[\s\S]*?Download the app[\s\S]*?→/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(
+    html,
+    /period-actions[\s\S]*?period-action--directions[\s\S]*?Directions[\s\S]*?↗[\s\S]*?period-action--download/
+  );
+  assert.match(html, /<button type="button" class="period-action period-action--directions"/);
+  assert.doesNotMatch(html, /class="stats"/);
+  assert.doesNotMatch(html, /app-plug-link/);
   assert.doesNotMatch(html, /Explore in the app/);
   assert.doesNotMatch(html, /Get directions/);
   assert.doesNotMatch(html, /Visit website/);
@@ -425,12 +432,17 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section`
+      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section[\\s\\S]*?period-actions`
     )
   );
-  assert.match(html, /info-section[\s\S]*?💴[\s\S]*?Price range: ¥¥/);
-  assert.match(html, /info-section[\s\S]*?⏱️[\s\S]*?Duration: 2 hrs/);
-  assert.match(html, /info-section[\s\S]*?🏡[\s\S]*?Setting: Mixed Inside &amp; Outside/);
+  assert.match(
+    html,
+    /info-hstack[\s\S]*?💴[\s\S]*?¥¥[\s\S]*?info-vdivider[\s\S]*?⏱️[\s\S]*?2 hrs[\s\S]*?info-vdivider[\s\S]*?☀️ 72°F[\s\S]*?Mixed Inside &amp; Outside/
+  );
+  assert.doesNotMatch(html, /Price range:/);
+  assert.doesNotMatch(html, /Duration:/);
+  assert.doesNotMatch(html, /Setting:/);
+  assert.doesNotMatch(html, /🏡/);
   assert.match(
     html,
     /info-section[\s\S]*?leo-magic[\s\S]*?Conditions: Excellent/
@@ -441,8 +453,9 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, /stroke-width="2\.25"/);
   assert.match(
     html,
-    /info-divider[\s\S]*?Price range: ¥¥[\s\S]*?info-divider[\s\S]*?Duration: 2 hrs[\s\S]*?info-divider[\s\S]*?Setting: Mixed Inside &amp; Outside[\s\S]*?info-divider[\s\S]*?Conditions: Excellent/
+    /info-hstack[\s\S]*?Mixed Inside &amp; Outside[\s\S]*?info-divider[\s\S]*?Conditions: Excellent/
   );
+  assert.match(html, /☀️ 86°F[\s\S]*?Outside/);
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
   assert.match(html, /Follow the loop and see the city shift with every stop\./);
   assert.doesNotMatch(html, /Follow the Yamanote Line\./);

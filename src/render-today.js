@@ -257,16 +257,24 @@ export function activityDescription(activity) {
   return "";
 }
 
-function renderStats(activity) {
-  if (activity?.type !== "foodDrink") return "";
-  return `<ul class="stats"><li><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download the app →</a></li></ul>`;
-}
-
 function renderAppPlug(activity) {
   if (activity?.type !== "sight" && activity?.type !== "sideQuest") return "";
   const plug = activity.appPlug?.trim() ?? "";
-  const plugHtml = plug ? `<p class="app-plug-text">${escapeHtml(plug)}</p>` : "";
-  return `<div class="app-plug">${plugHtml}<p class="app-plug-link"><a href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download the app →</a></p></div>`;
+  if (!plug) return "";
+  return `<div class="app-plug"><p class="app-plug-text">${escapeHtml(plug)}</p></div>`;
+}
+
+function renderPeriodActions() {
+  return `<div class="period-actions">
+      <button type="button" class="period-action period-action--directions">
+        <span class="period-action-label">Directions</span>
+        <span class="period-action-symbol" aria-hidden="true">↗</span>
+      </button>
+      <a class="period-action period-action--download" href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">
+        <span class="period-action-label">Download the app</span>
+        <span class="period-action-symbol" aria-hidden="true">→</span>
+      </a>
+    </div>`;
 }
 
 const CITY_CURRENCY = {
@@ -308,34 +316,57 @@ export function formatDurationHoursLabel(hours) {
   return `${n.toFixed(1)} hrs`;
 }
 
-export function renderInfoSection(activity, { city, periodIndex } = {}) {
+function renderInfoChip({ symbol, text, joinWithDot = false }) {
+  const pieces = [];
+  if (symbol) {
+    pieces.push(`<span class="info-symbol" aria-hidden="true">${escapeHtml(symbol)}</span>`);
+  }
+  if (joinWithDot && symbol && text) {
+    pieces.push(`<span class="info-chip-sep" aria-hidden="true">·</span>`);
+  }
+  if (text) {
+    pieces.push(`<span class="info-text">${escapeHtml(text)}</span>`);
+  }
+  if (!pieces.length) return "";
+  return `<div class="info-chip">${pieces.join("")}</div>`;
+}
+
+export function renderInfoSection(activity, { city, periodIndex, period } = {}) {
   if (!activity) return "";
-  const rows = [];
+  const chips = [];
 
   const priceRange = activity.priceRange?.trim();
   if (priceRange) {
-    const emoji = currencyEmoji(resolveCurrencySymbol(activity, city));
-    rows.push(
-      `<div class="info-row"><span class="info-symbol" aria-hidden="true">${emoji}</span><span class="info-text">Price range: ${escapeHtml(priceRange)}</span></div>`
+    chips.push(
+      renderInfoChip({
+        symbol: currencyEmoji(resolveCurrencySymbol(activity, city)),
+        text: priceRange,
+      })
     );
   }
 
   const durationLabel = formatDurationHoursLabel(activity.durationHours);
   if (durationLabel) {
-    rows.push(
-      `<div class="info-row"><span class="info-symbol" aria-hidden="true">⏱️</span><span class="info-text">Duration: ${escapeHtml(durationLabel)}</span></div>`
+    chips.push(renderInfoChip({ symbol: "⏱️", text: durationLabel }));
+  }
+
+  const setting = activity.setting?.trim();
+  if (setting) {
+    const weatherLine = buildPeriodWeatherLine(period);
+    chips.push(
+      renderInfoChip({
+        symbol: weatherLine,
+        text: setting,
+        joinWithDot: Boolean(weatherLine),
+      })
     );
   }
 
-  if (activity.type === "sight" || activity.type === "sideQuest") {
-    const setting = activity.setting?.trim();
-    if (setting) {
-      rows.push(
-        `<div class="info-row"><span class="info-symbol" aria-hidden="true">🏡</span><span class="info-text">Setting: ${escapeHtml(setting)}</span></div>`
-      );
-    }
-  }
+  const hstack = chips.length
+    ? `<div class="info-hstack">${chips.join('<span class="info-vdivider" aria-hidden="true"></span>')}</div>`
+    : "";
 
+  let conditionsRow = "";
   const hasLeoMagicPct = Number.isFinite(Number(activity.leoMagicPct));
   if (hasLeoMagicPct) {
     const pct = Number(activity.leoMagicPct);
@@ -347,13 +378,12 @@ export function renderInfoSection(activity, { city, periodIndex } = {}) {
       className: "leo-magic info-leo-magic",
     });
     const label = conditionsLabelFromLeoMagicPct(pct);
-    rows.push(
-      `<div class="info-row"><span class="info-symbol">${symbol}</span><span class="info-text">Conditions: ${escapeHtml(label)}</span></div>`
-    );
+    conditionsRow = `<div class="info-row"><span class="info-symbol">${symbol}</span><span class="info-text">Conditions: ${escapeHtml(label)}</span></div>`;
   }
 
-  if (!rows.length) return "";
-  return `<div class="info-section"><hr class="info-divider">${rows.join('<hr class="info-divider">')}</div>`;
+  if (!hstack && !conditionsRow) return "";
+  const blocks = [hstack, conditionsRow].filter(Boolean);
+  return `<div class="info-section"><hr class="info-divider">${blocks.join('<hr class="info-divider">')}</div>`;
 }
 
 function renderHero(activity) {
@@ -405,9 +435,9 @@ function renderPeriod(period, { city } = {}) {
       ${renderHero(activity)}
       <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
-      ${renderStats(activity)}
       ${renderAppPlug(activity)}
-      ${renderInfoSection(activity, { city, periodIndex: period.index })}
+      ${renderInfoSection(activity, { city, periodIndex: period.index, period })}
+      ${renderPeriodActions()}
     </section>`;
 }
 
@@ -458,6 +488,13 @@ export function renderCityTodayPage({ city, pack, error }) {
   ${navAssetTags()}
   ${leoMagicAssetTags()}
   <style>
+    :root {
+      --leo-blue: #3269d9;
+      --leo-blue-paper: #fdfdfe;
+      --leo-gray: #b3b3b3;
+      --leo-gray-dark: #333333;
+      --leo-gray-paper: #fefefe;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -507,19 +544,6 @@ export function renderCityTodayPage({ city, pack, error }) {
     .description {
       white-space: pre-line;
     }
-    .stats {
-      list-style: none;
-      padding: 0;
-      margin: 0.75rem 0 1rem;
-    }
-    .stats li {
-      margin: 0.25rem 0;
-    }
-    .stats a {
-      color: #111;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
     .app-plug {
       margin: 0.75rem 0 1rem;
     }
@@ -528,16 +552,100 @@ export function renderCityTodayPage({ city, pack, error }) {
       color: #333;
       white-space: pre-line;
     }
-    .app-plug-link {
-      margin: 0;
+    .period-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.7rem;
+      margin: 1.1rem 0 0;
     }
-    .app-plug-link a {
-      color: #111;
-      text-decoration: underline;
-      text-underline-offset: 2px;
+    .period-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4em;
+      flex: 1 1 0;
+      width: 100%;
+      min-height: 3.15rem;
+      padding: 0.9rem 1.2rem;
+      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-align: center;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      border-radius: 20%;
+      overflow: hidden;
+    }
+    .period-action-label,
+    .period-action-symbol {
+      color: inherit;
+    }
+    .period-action--directions {
+      background: var(--leo-gray-paper);
+      border: 1.5px solid var(--leo-gray);
+      color: var(--leo-gray-dark);
+    }
+    .period-action--download {
+      background: var(--leo-blue);
+      border: 1.5px solid var(--leo-blue);
+      color: var(--leo-blue-paper);
+      font-size: 1.0625rem;
+      font-weight: 700;
+    }
+    .period-action:focus-visible {
+      outline: 2px solid var(--leo-blue);
+      outline-offset: 3px;
+    }
+    @media (min-width: 36rem) {
+      .period-actions {
+        flex-direction: row;
+      }
     }
     .info-section {
       margin: 0.75rem 0 1rem;
+    }
+    .info-hstack {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-evenly;
+      gap: 0.35rem 0;
+      font-size: clamp(0.78rem, 2.7vw, 0.95rem);
+      color: #333;
+    }
+    .info-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3em;
+      flex: 1 1 auto;
+      min-width: min-content;
+      white-space: nowrap;
+    }
+    .info-chip .info-symbol {
+      width: auto;
+      font-size: 1em;
+    }
+    .info-chip .info-text {
+      flex: 0 1 auto;
+    }
+    .info-chip-sep {
+      color: #888;
+    }
+    .info-vdivider {
+      width: 1px;
+      height: 1.15em;
+      margin: 0 0.55rem;
+      background: #ddd;
+      flex: none;
+      align-self: center;
     }
     .info-row {
       display: flex;
