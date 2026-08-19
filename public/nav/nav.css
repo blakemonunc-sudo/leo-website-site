@@ -75,8 +75,9 @@
 }
 
 .leo-nav[data-variant="today"] .leo-nav-row--scrolled {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .leo-nav-brand-slot {

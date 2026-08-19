@@ -1,10 +1,6 @@
 import { buildHeroProxyPath } from "./images.js";
-import {
-  conditionsLabelFromLeoMagicPct,
-  leoMagicAssetTags,
-  renderLeoMagicIndicator,
-} from "./leo-magic.js";
 import { navAssetTags, renderSiteNav } from "./render-nav.js";
+import { renderSiteClosing, siteChromeAssetTags } from "./render-site-chrome.js";
 
 export { conditionsLabelFromLeoMagicPct } from "./leo-magic.js";
 
@@ -72,6 +68,58 @@ export function buildPeriodWeatherLine(period) {
 
   const symbol = CONDITION_SYMBOLS[condition] ?? "🌤️";
   return [symbol, avgTempLabel].filter(Boolean).join(" ");
+}
+
+function dominantConditionLabel(condition) {
+  const key = String(condition ?? "").trim();
+  if (!key) return "mixed conditions";
+  const lower = key.toLowerCase();
+  if (lower === "partly cloudy") return "partly cloudy";
+  if (lower === "overcast") return "overcast";
+  return lower;
+}
+
+/**
+ * Day-level weather summary from all periods with activities.
+ * @returns {{ symbol: string, tempRange: string, dominantCondition: string, sentence: string }}
+ */
+export function buildDaySummary(periods) {
+  const active = (periods ?? []).filter(periodHasActivity);
+  if (!active.length) {
+    return { symbol: "", tempRange: "", dominantCondition: "", sentence: "" };
+  }
+
+  const conditionCounts = new Map();
+  for (const period of active) {
+    const { condition } = parsePeriodLabel(period.label);
+    const key = String(condition ?? "").trim();
+    if (!key) continue;
+    conditionCounts.set(key, (conditionCounts.get(key) ?? 0) + 1);
+  }
+
+  let dominantCondition = "";
+  let maxCount = 0;
+  for (const [condition, count] of conditionCounts.entries()) {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantCondition = condition;
+    }
+  }
+
+  const symbol = CONDITION_SYMBOLS[dominantCondition] ?? "🌤️";
+
+  const mins = active.map((p) => p.tempMinC).filter((n) => typeof n === "number");
+  const maxs = active.map((p) => p.tempMaxC).filter((n) => typeof n === "number");
+  const tempMinC = mins.length ? Math.min(...mins) : null;
+  const tempMaxC = maxs.length ? Math.max(...maxs) : null;
+  const tempRange = formatTempRange(tempMinC, tempMaxC);
+
+  const phrase = dominantConditionLabel(dominantCondition);
+  const sentence = tempRange
+    ? `Mostly ${phrase} today, from ${tempRange}.`
+    : `Mostly ${phrase} today.`;
+
+  return { symbol, tempRange, dominantCondition, sentence };
 }
 
 /** Parse pack period.start ("HH:MM") as a 24-hour hour integer. */
@@ -212,6 +260,21 @@ export function buildPeriodHeader(period, activity) {
   return dayPeriod;
 }
 
+/** Activity-only title for hero overlay (DayPeriod is shown in the badge). */
+export function activityHeroTitle(activity) {
+  if (!activity) return "";
+  if (activity.type === "sight") {
+    return activity.place?.trim() || activity.title?.trim() || "";
+  }
+  if (activity.type === "foodDrink") {
+    return activity.title?.trim() || "";
+  }
+  if (activity.type === "sideQuest") {
+    return activity.webTitle?.trim() || activity.title?.trim() || "Side Quest!";
+  }
+  return "";
+}
+
 /**
  * AdventureView intro paragraph (first sentence before why_go).
  * Formula: "{vibeString}, {teaserConnector} {teaser}" where
@@ -264,17 +327,84 @@ function renderAppPlug(activity) {
   return `<div class="app-plug"><p class="app-plug-text">${escapeHtml(plug)}</p></div>`;
 }
 
-function renderPeriodActions() {
+function renderPeriodDirections() {
   return `<div class="period-actions">
-      <button type="button" class="period-action period-action--directions">
-        <span class="period-action-label">Directions</span>
-        <span class="period-action-symbol" aria-hidden="true">↗</span>
+      <button type="button" class="period-directions">
+        <span class="period-directions-label">Directions</span>
+        <span class="period-directions-symbol" aria-hidden="true">→</span>
       </button>
-      <a class="period-action period-action--download" href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">
-        <span class="period-action-label">Download the app</span>
-        <span class="period-action-symbol" aria-hidden="true">→</span>
-      </a>
     </div>`;
+}
+
+function activityItineraryTitle(activity) {
+  if (!activity) return "";
+  if (activity.type === "sideQuest") {
+    return activity.webTitle?.trim() || activity.title?.trim() || "Side Quest";
+  }
+  if (activity.type === "foodDrink") {
+    return activity.title?.trim() || activity.category?.trim() || "";
+  }
+  return activity.title?.trim() || activity.place?.trim() || "";
+}
+
+function renderItineraryLink(period) {
+  const sectionId = periodSectionId(period);
+  const periodName = dayPeriodNavName(period);
+  const activityTitle = activityItineraryTitle(period.activity);
+  return `<a class="today-itinerary-link" href="#${escapeHtml(sectionId)}" data-period="${escapeHtml(sectionId)}">
+    <span class="today-itinerary-dot" aria-hidden="true"></span>
+    <span class="today-itinerary-label">
+      <span class="today-itinerary-period">${escapeHtml(periodName)}</span>
+      ${activityTitle ? `<span class="today-itinerary-activity">${escapeHtml(activityTitle)}</span>` : ""}
+    </span>
+  </a>`;
+}
+
+function renderItineraryNav(periods, { className = "today-itinerary", id = "", ariaLabel = "Today's itinerary" } = {}) {
+  if (!periods?.length) return "";
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
+  const links = periods.map((period) => renderItineraryLink(period)).join("");
+  return `<nav class="${escapeHtml(className)}"${idAttr} aria-label="${escapeHtml(ariaLabel)}">${links}</nav>`;
+}
+
+function renderDaySummaryBand(summary, periods = []) {
+  if (!summary?.sentence) return "";
+  const embeddedNav = periods.length
+    ? renderItineraryNav(periods, {
+        className: "today-itinerary today-itinerary--embedded",
+        id: "today-itinerary-mobile",
+        ariaLabel: "Today's itinerary",
+      })
+    : "";
+  return `<section class="today-day-summary" aria-label="Today's weather and itinerary">
+    <div class="today-day-summary-weather">
+      <span class="today-day-summary-symbol" aria-hidden="true">${escapeHtml(summary.symbol)}</span>
+      <div class="today-day-summary-text">
+        ${summary.tempRange ? `<p class="today-day-summary-temp">${escapeHtml(summary.tempRange)}</p>` : ""}
+        <p class="today-day-summary-sentence">${escapeHtml(summary.sentence)}</p>
+      </div>
+    </div>
+    ${embeddedNav}
+  </section>`;
+}
+
+function renderItinerarySidebar(periods) {
+  if (!periods?.length) return "";
+  return `<aside class="today-sidebar today-sidebar--desktop">
+    <h2 class="today-sidebar-heading">Today&rsquo;s Itinerary</h2>
+    ${renderItineraryNav(periods, {
+      className: "today-itinerary today-itinerary--sidebar",
+      id: "today-itinerary",
+      ariaLabel: "Today's itinerary",
+    })}
+  </aside>`;
+}
+
+function renderMobileNudge() {
+  return `<section class="today-mobile-nudge" aria-label="Download Leo">
+    <p class="today-mobile-nudge-copy">Get directions &amp; personalized plans in Leo</p>
+    <a class="today-mobile-nudge-cta" href="${escapeHtml(APP_STORE_URL)}" rel="noopener noreferrer">Download</a>
+  </section>`;
 }
 
 const CITY_CURRENCY = {
@@ -290,12 +420,6 @@ export function resolveCurrencySymbol(activity, city) {
   const fromTier = activity?.priceRange?.match(/[¥€$]/)?.[0];
   if (fromTier) return fromTier;
   return CITY_CURRENCY[city?.webCityId] ?? "$";
-}
-
-export function currencyEmoji(currencySymbol) {
-  if (currencySymbol === "¥") return "💴";
-  if (currencySymbol === "€") return "💶";
-  return "💵";
 }
 
 /** iOS AdvView / AdventureView / ChallengeView hrs notation, with web-specific rules:
@@ -331,85 +455,71 @@ function renderInfoChip({ symbol, text, joinWithDot = false }) {
   return `<div class="info-chip">${pieces.join("")}</div>`;
 }
 
-export function renderInfoSection(activity, { city, periodIndex, period } = {}) {
+export function renderInfoSection(activity, { city, period } = {}) {
   if (!activity) return "";
   const chips = [];
 
   const priceRange = activity.priceRange?.trim();
   if (priceRange) {
-    chips.push(
-      renderInfoChip({
-        symbol: currencyEmoji(resolveCurrencySymbol(activity, city)),
-        text: priceRange,
-      })
-    );
+    chips.push(renderInfoChip({ text: priceRange }));
   }
 
   const durationLabel = formatDurationHoursLabel(activity.durationHours);
   if (durationLabel) {
-    chips.push(renderInfoChip({ symbol: "⏱️", text: durationLabel }));
+    chips.push(renderInfoChip({ text: durationLabel }));
   }
 
   const setting = activity.setting?.trim();
   if (setting) {
-    const weatherLine = buildPeriodWeatherLine(period);
-    chips.push(
-      renderInfoChip({
-        symbol: weatherLine,
-        text: setting,
-        joinWithDot: Boolean(weatherLine),
-      })
-    );
+    chips.push(renderInfoChip({ text: setting }));
   }
 
-  const hstack = chips.length
-    ? `<div class="info-hstack">${chips.join('<span class="info-vdivider" aria-hidden="true"></span>')}</div>`
-    : "";
+  if (!chips.length) return "";
 
-  let conditionsRow = "";
-  const hasLeoMagicPct = Number.isFinite(Number(activity.leoMagicPct));
-  if (hasLeoMagicPct) {
-    const pct = Number(activity.leoMagicPct);
-    const magicId = `leo-magic-${periodIndex ?? "x"}`;
-    const symbol = renderLeoMagicIndicator({
-      id: magicId,
-      pct,
-      size: 22,
-      className: "leo-magic info-leo-magic",
-    });
-    const label = conditionsLabelFromLeoMagicPct(pct);
-    conditionsRow = `<div class="info-row"><span class="info-symbol">${symbol}</span><span class="info-text">Conditions: ${escapeHtml(label)}</span></div>`;
-  }
-
-  if (!hstack && !conditionsRow) return "";
-  const blocks = [hstack, conditionsRow].filter(Boolean);
-  return `<div class="info-section"><hr class="info-divider">${blocks.join('<hr class="info-divider">')}</div>`;
+  const hstack = `<div class="info-hstack">${chips.join("")}</div>`;
+  return `<div class="info-section">${hstack}</div>`;
 }
 
-function renderHero(activity) {
+function renderHero(activity, period, headerTitle) {
   const proxyPath = buildHeroProxyPath(activity?.heroImage);
   const media = proxyPath
     ? `<img class="hero" src="${escapeHtml(proxyPath)}" alt="" loading="lazy">`
     : `<div class="hero hero-placeholder" aria-hidden="true"></div>`;
 
+  const periodBadge = buildPeriodDayName(period);
+  const weatherBadge = buildPeriodWeatherLine(period);
+  const badgeStack =
+    periodBadge || weatherBadge
+      ? `<div class="hero-badges">
+    ${periodBadge ? `<span class="hero-badge hero-badge--period">${escapeHtml(periodBadge)}</span>` : ""}
+    ${weatherBadge ? `<span class="hero-badge hero-badge--weather">${escapeHtml(weatherBadge)}</span>` : ""}
+  </div>`
+      : "";
+  const overlayBadges = `<div class="hero-overlay">
+    ${badgeStack}
+    ${headerTitle ? `<h2 class="hero-title">${escapeHtml(headerTitle)}</h2>` : ""}
+  </div>`;
+
   const caption = activity?.imageCaption?.trim();
-  if (!caption) {
-    return `<div class="hero-frame">${media}</div>`;
-  }
-
-  const sourceUrl = normalizeWebsiteUrl(activity.imageSourceWebsite);
-  const creditBody = sourceUrl
-    ? `<a href="${escapeHtml(sourceUrl)}" rel="noopener noreferrer">${escapeHtml(caption)}</a>`
-    : escapeHtml(caption);
-
-  return `<div class="hero-frame">
-      ${media}
-      <div class="hero-credit">
+  const creditHtml = caption
+    ? (() => {
+        const sourceUrl = normalizeWebsiteUrl(activity.imageSourceWebsite);
+        const creditBody = sourceUrl
+          ? `<a href="${escapeHtml(sourceUrl)}" rel="noopener noreferrer">${escapeHtml(caption)}</a>`
+          : escapeHtml(caption);
+        return `<div class="hero-credit">
         <button type="button" class="hero-credit-btn" aria-label="Image source" aria-expanded="false">
           <span class="hero-credit-icon" aria-hidden="true">i</span>
         </button>
         <p class="hero-credit-popover">${creditBody}</p>
-      </div>
+      </div>`;
+      })()
+    : "";
+
+  return `<div class="hero-frame">
+      ${media}
+      ${overlayBadges}
+      ${creditHtml}
     </div>`;
 }
 
@@ -422,23 +532,38 @@ function dayPeriodNavName(period) {
   return buildPeriodDayName(period);
 }
 
-function renderPeriod(period, { city } = {}) {
+function renderPeriod(period, { city, isLast = false } = {}) {
   const activity = period.activity;
   if (!activity) return "";
   const sectionId = periodSectionId(period);
+  const headerTitle = activityHeroTitle(activity);
 
   const description = activityDescription(activity);
+  const infoSectionHtml = renderInfoSection(activity, { city, period });
+  const divider = isLast ? "" : `<hr class="period-divider">`;
 
   return `
     <section class="period" id="${escapeHtml(sectionId)}">
-      <hr class="period-divider">
-      ${renderHero(activity)}
-      <h2 class="period-title">${escapeHtml(buildPeriodHeader(period, activity))}</h2>
+      ${renderHero(activity, period, headerTitle)}
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderAppPlug(activity)}
-      ${renderInfoSection(activity, { city, periodIndex: period.index, period })}
-      ${renderPeriodActions()}
+      ${infoSectionHtml}
+      ${renderPeriodDirections()}
+      ${divider}
     </section>`;
+}
+
+function renderPeriodsWithNudge(periods, { city } = {}) {
+  return periods
+    .map((period, index) => {
+      const isLast = index === periods.length - 1;
+      const html = renderPeriod(period, { city, isLast });
+      if (index === 1 && periods.length >= 3) {
+        return `${html}${renderMobileNudge()}`;
+      }
+      return html;
+    })
+    .join("");
 }
 
 /**
@@ -465,19 +590,23 @@ export function renderCityTodayPage({ city, pack, error }) {
   const periods = pack
     ? [...(pack.periods ?? [])].sort((a, b) => a.index - b.index).filter(periodHasActivity)
     : [];
-  const periodLinks = periods.map((period) => ({
-    name: dayPeriodNavName(period),
-    href: `#${periodSectionId(period)}`,
-  }));
+  const daySummary = buildDaySummary(periods);
 
   let body;
   if (error) {
     body = `<p class="error">Could not load plan for ${escapeHtml(cityName)}: ${escapeHtml(error)}</p>`;
   } else if (!pack) {
     body = `<p class="muted">No plan available for ${escapeHtml(cityName)} yet.</p>`;
+  } else if (!periods.length) {
+    body = `<p class="muted">No activities scheduled for ${escapeHtml(cityName)} today.</p>`;
   } else {
-    body = periods.map((period) => renderPeriod(period, { city })).join("");
+    body = `<div class="today-layout">
+      ${renderItinerarySidebar(periods)}
+      <div class="today-periods">${renderPeriodsWithNudge(periods, { city })}</div>
+    </div>`;
   }
+
+  const eyebrow = updated ? `${cityName.toUpperCase()} · ${updated}` : cityName.toUpperCase();
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -486,207 +615,322 @@ export function renderCityTodayPage({ city, pack, error }) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} — Leo</title>
   ${navAssetTags()}
-  ${leoMagicAssetTags()}
+  ${siteChromeAssetTags()}
   <style>
     :root {
       --leo-blue: #3269d9;
+      --leo-blue-light: #eaf0fb;
+      --leo-blue-lightest: #f5f8fd;
+      --leo-blue-dark: #1b294b;
       --leo-blue-paper: #fdfdfe;
       --leo-gray: #b3b3b3;
+      --leo-gray-subtitle: #737373;
       --leo-gray-dark: #333333;
+      --leo-gray-light: #f7f7f7;
       --leo-gray-paper: #fefefe;
+      --leo-yellow-lightest: #fefcf6;
+      --leo-red: #f24130;
+      --border: #e6e2d8;
+      --ink: var(--leo-gray-dark);
+      --muted: var(--leo-gray-subtitle);
+      --cream: var(--leo-yellow-lightest);
+      --font-display: Georgia, "Times New Roman", serif;
+      --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --page-gutter: clamp(1rem, 4vw, 1.875rem);
+      --today-max: 1100px;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: var(--font-body);
       line-height: 1.5;
-      color: #111;
-      background: #fafafa;
+      color: var(--ink);
+      background: var(--cream);
+      -webkit-font-smoothing: antialiased;
     }
     main {
-      max-width: 640px;
+      max-width: var(--today-max);
       margin: 0 auto;
-      padding: 1.5rem 1rem 3rem;
+      padding: calc(var(--leo-nav-offset, 56px) + 1.25rem) var(--page-gutter) 3rem;
+    }
+    .today-lede { margin-bottom: 1.5rem; }
+    .today-eyebrow {
+      margin: 0 0 0.65rem;
+      font-family: var(--font-body);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
     h1 {
-      font-size: 1.75rem;
-      margin: 0 0 0.5rem;
-      line-height: 1.2;
+      font-family: var(--font-display);
+      font-size: clamp(1.85rem, 5vw, 2.75rem);
+      font-weight: 400;
+      margin: 0 0 0.85rem;
+      line-height: 1.12;
     }
-    .updated {
-      color: #666;
-      font-size: 0.9rem;
-      margin: 0 0 1rem;
-    }
+    .today-accent { color: var(--leo-blue); }
     .intro {
-      margin: 0 0 1.5rem;
-      color: #333;
+      margin: 0;
+      color: var(--ink);
+      font-size: 1rem;
+      max-width: 42rem;
     }
-    .period {
-      margin-bottom: 1.75rem;
-      scroll-margin-top: calc(var(--leo-nav-offset, 56px) + 12px);
-    }
-    .period-divider {
-      border: 0;
-      border-top: 1px solid #ddd;
-      margin: 0 0 1rem;
-    }
-    .period-title {
-      margin: 0 0 0.75rem;
-      font-size: 1.25rem;
-    }
-    .why-now,
-    .price-range,
-    .description {
-      margin: 0 0 0.5rem;
-      color: #333;
-    }
-    .description {
-      white-space: pre-line;
-    }
-    .app-plug {
-      margin: 0.75rem 0 1rem;
-    }
-    .app-plug-text {
-      margin: 0 0 0.5rem;
-      color: #333;
-      white-space: pre-line;
-    }
-    .period-actions {
+    .today-day-summary {
       display: flex;
       flex-direction: column;
-      align-items: stretch;
-      gap: 0.7rem;
-      margin: 1.1rem 0 0;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      padding: 1rem 1.1rem;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
     }
-    .period-action {
+    .today-day-summary-weather {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+    }
+    .today-day-summary-symbol {
+      font-size: 1.75rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .today-day-summary-text { min-width: 0; }
+    .today-day-summary-temp {
+      margin: 0 0 0.2rem;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+    .today-day-summary-sentence {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .today-itinerary--embedded {
+      display: none;
+    }
+    .today-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+      align-items: start;
+    }
+    .today-sidebar-heading {
+      margin: 0 0 0.85rem;
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 400;
+      line-height: 1.2;
+    }
+    .today-itinerary {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .today-itinerary--sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .today-itinerary-link {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.55rem 0.35rem;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: background-color 150ms ease;
+    }
+    .today-itinerary-link:hover { background: rgba(50, 105, 217, 0.06); }
+    .today-itinerary-link.is-active .today-itinerary-period { color: var(--leo-blue); }
+    .today-itinerary-link.is-active .today-itinerary-dot {
+      background: var(--leo-blue);
+      box-shadow: 0 0 0 3px var(--leo-blue-light);
+    }
+    .today-itinerary-dot {
+      width: 8px;
+      height: 8px;
+      margin-top: 0.45rem;
+      border-radius: 50%;
+      background: var(--leo-gray);
+      flex-shrink: 0;
+      transition: background-color 150ms ease, box-shadow 150ms ease;
+    }
+    .today-itinerary-label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+    .today-itinerary-period {
+      font-family: var(--font-display);
+      font-size: 0.98rem;
+      line-height: 1.2;
+      transition: color 150ms ease;
+    }
+    .today-itinerary-activity {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+    .today-periods { min-width: 0; }
+    .period {
+      margin-bottom: 2rem;
+      scroll-margin-top: calc(var(--leo-nav-offset, 56px) + 16px);
+    }
+    .period:last-child { margin-bottom: 0; }
+    .description {
+      margin: 0.85rem 0 0.65rem;
+      color: var(--ink);
+      white-space: pre-line;
+    }
+    .app-plug { margin: 0.65rem 0 0.75rem; }
+    .app-plug-text {
+      margin: 0;
+      color: var(--ink);
+      white-space: pre-line;
+      font-size: 0.95rem;
+    }
+    .period-actions { margin: 0.65rem 0 0; }
+    .period-divider {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 1.5rem 0 0;
+    }
+    .period-directions {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.4em;
-      flex: 1 1 0;
-      width: 100%;
-      min-height: 3.15rem;
-      padding: 0.9rem 1.2rem;
-      box-sizing: border-box;
-      font-family: inherit;
-      font-size: 1rem;
+      gap: 0.35em;
+      padding: 0;
+      border: 0;
+      background: none;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
       font-weight: 600;
-      line-height: 1.2;
-      text-align: center;
-      text-decoration: none;
-      white-space: nowrap;
+      color: var(--leo-blue);
       cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      border-radius: 10pt;
-      overflow: hidden;
+      text-decoration: none;
     }
-    .period-action-label,
-    .period-action-symbol {
-      color: inherit;
-    }
-    .period-action--directions {
-      background: var(--leo-gray-paper);
-      border: 1.5px solid var(--leo-gray);
-      color: var(--leo-gray-dark);
-    }
-    .period-action--download {
-      background: var(--leo-blue);
-      border: 1.5px solid var(--leo-blue);
-      color: var(--leo-blue-paper);
-      font-size: 1.0625rem;
-      font-weight: 700;
-    }
-    .period-action:focus-visible {
+    .period-directions:hover { text-decoration: underline; }
+    .period-directions:focus-visible {
       outline: 2px solid var(--leo-blue);
       outline-offset: 3px;
+      border-radius: 4px;
     }
-    @media (min-width: 36rem) {
-      .period-actions {
-        flex-direction: row;
-      }
+    .today-mobile-nudge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin: 0.5rem 0 1.75rem;
+      padding: 0.85rem 1rem;
+      background: var(--leo-blue-lightest);
+      border: 1px solid rgba(50, 105, 217, 0.15);
+      border-radius: 12px;
     }
-    .info-section {
-      margin: 0.75rem 0 1rem;
+    .today-mobile-nudge-copy {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--leo-blue-dark);
     }
+    .today-mobile-nudge-cta {
+      flex-shrink: 0;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      background: var(--leo-blue);
+      color: var(--leo-blue-paper);
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .info-section { margin: 0.75rem 0 0.5rem; }
     .info-hstack {
       display: flex;
       flex-direction: row;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-evenly;
-      gap: 0.35rem 0;
-      font-size: clamp(0.78rem, 2.7vw, 0.95rem);
-      color: #333;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      font-size: clamp(0.78rem, 2.7vw, 0.92rem);
+      color: var(--ink);
     }
     .info-chip {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 0.3em;
-      flex: 1 1 auto;
-      min-width: min-content;
+      padding: 0.35rem 0.55rem;
+      background: var(--leo-gray-light);
+      border-radius: 999px;
       white-space: nowrap;
     }
-    .info-chip .info-symbol {
-      width: auto;
-      font-size: 1em;
-    }
-    .info-chip .info-text {
-      flex: 0 1 auto;
-    }
-    .info-chip-sep {
-      color: #888;
-    }
-    .info-vdivider {
-      width: 1px;
-      height: 1.15em;
-      margin: 0 0.55rem;
-      background: #ddd;
-      flex: none;
-      align-self: center;
-    }
-    .info-row {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      margin: 0;
-      color: #333;
-    }
-    .info-symbol {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.5rem;
-      font-size: 1.1rem;
-      line-height: 1;
-    }
-    .info-text {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-    .info-divider {
-      border: 0;
-      border-top: 1px solid #ddd;
-      margin: 0.65rem 0;
-    }
+    .info-chip .info-symbol { font-size: 1em; }
+    .info-chip-sep { color: var(--muted); }
     .hero-frame {
       position: relative;
-      margin: 0 0 0.5rem;
+      overflow: hidden;
+      border-radius: 14px;
+      background: var(--leo-gray-light);
     }
     .hero {
       width: 100%;
-      aspect-ratio: 16 / 9;
+      aspect-ratio: 16 / 10;
       object-fit: cover;
       display: block;
       margin: 0;
-      background: #eee;
     }
     .hero-placeholder {
-      min-height: 160px;
+      min-height: 200px;
       background: linear-gradient(135deg, #ececec, #f7f7f7);
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0.85rem;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.35) 0%,
+        rgba(0, 0, 0, 0.05) 38%,
+        rgba(0, 0, 0, 0.55) 100%
+      );
+      pointer-events: none;
+    }
+    .hero-badges {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+    .hero-badge {
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-family: var(--font-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.55);
+      pointer-events: none;
+    }
+    .hero-badge--period {
+      background: var(--leo-blue);
+    }
+    .hero-title {
+      margin: 0;
+      margin-top: auto;
+      font-family: var(--font-display);
+      font-size: clamp(1.25rem, 3.5vw, 1.65rem);
+      font-weight: 400;
+      line-height: 1.15;
+      color: #fff;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
     }
     .hero-credit {
       position: absolute;
@@ -716,12 +960,11 @@ export function renderCityTodayPage({ city, pack, error }) {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
     .hero-credit-icon {
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: var(--font-display);
       font-size: 0.85rem;
       font-style: italic;
       font-weight: 700;
       line-height: 1;
-      transform: translateY(-0.5px);
     }
     .hero-credit-popover {
       pointer-events: auto;
@@ -756,27 +999,61 @@ export function renderCityTodayPage({ city, pack, error }) {
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .hero-credit.is-open .hero-credit-popover {
-      display: block;
-    }
+    .hero-credit.is-open .hero-credit-popover { display: block; }
     @media (hover: hover) and (pointer: fine) {
       .hero-credit:hover .hero-credit-popover,
-      .hero-credit:focus-within .hero-credit-popover {
-        display: block;
+      .hero-credit:focus-within .hero-credit-popover { display: block; }
+    }
+    .muted { color: var(--muted); }
+    .error { color: var(--leo-red); }
+    @media (max-width: 55.99rem) {
+      .today-sidebar--desktop { display: none; }
+      .today-itinerary--embedded {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        margin-top: 0.85rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid var(--border);
+      }
+      .today-itinerary--embedded .today-itinerary-link.is-active .today-itinerary-period {
+        color: inherit;
+      }
+      .today-itinerary--embedded .today-itinerary-link.is-active .today-itinerary-dot {
+        background: var(--leo-gray);
+        box-shadow: none;
       }
     }
-    .muted { color: #777; }
-    .error { color: #a00; }
+    @media (min-width: 56rem) {
+      .today-itinerary--embedded { display: none; }
+      .today-layout {
+        grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+        gap: 2.5rem;
+      }
+      .today-sidebar {
+        position: sticky;
+        top: calc(var(--leo-nav-offset, 56px) + 1rem);
+      }
+      .today-mobile-nudge { display: none; }
+      .info-hstack {
+        flex-wrap: nowrap;
+        align-items: center;
+      }
+    }
   </style>
 </head>
 <body>
-  ${renderSiteNav({ variant: "today", city, periodLinks })}
+  ${renderSiteNav({ variant: "today", city })}
   <main>
-    <h1>${escapeHtml(title)}</h1>
-    ${updated ? `<p class="updated">${escapeHtml(updated)}</p>` : ""}
-    <p class="intro">${escapeHtml(intro)}</p>
+    <header class="today-lede">
+      <p class="today-eyebrow">${escapeHtml(eyebrow)}</p>
+      <h1>What to Do in ${escapeHtml(cityName)} <span class="today-accent">Today</span></h1>
+      <p class="intro">${escapeHtml(intro)}</p>
+    </header>
+    ${renderDaySummaryBand(daySummary, periods)}
     ${body}
   </main>
+  ${renderSiteClosing()}
   <script>
     (function () {
       function setOpen(credit, open) {
@@ -797,6 +1074,68 @@ export function renderCityTodayPage({ city, pack, error }) {
           if (!credit.contains(e.target)) setOpen(credit, false);
         });
       });
+
+      const sidebarLinks = [...document.querySelectorAll(".today-itinerary--sidebar .today-itinerary-link")];
+      const periodSections = [...document.querySelectorAll(".period[id]")];
+      const desktopItineraryQuery = window.matchMedia("(min-width: 56rem)");
+      let scrollspyObserver = null;
+
+      function isDesktopItinerary() {
+        return desktopItineraryQuery.matches;
+      }
+
+      function setActivePeriod(id) {
+        sidebarLinks.forEach((link) => {
+          link.classList.toggle("is-active", link.getAttribute("data-period") === id);
+        });
+      }
+
+      function teardownScrollspy() {
+        if (scrollspyObserver) {
+          scrollspyObserver.disconnect();
+          scrollspyObserver = null;
+        }
+        sidebarLinks.forEach((link) => link.classList.remove("is-active"));
+      }
+
+      function setupScrollspy() {
+        teardownScrollspy();
+        if (!isDesktopItinerary() || !sidebarLinks.length || !periodSections.length) return;
+
+        if ("IntersectionObserver" in window) {
+          scrollspyObserver = new IntersectionObserver(
+            (entries) => {
+              if (!isDesktopItinerary()) return;
+              const visible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+              if (visible.length) setActivePeriod(visible[0].target.id);
+            },
+            {
+              root: null,
+              threshold: [0.2, 0.35, 0.5, 0.65],
+              rootMargin: "-20% 0px -55% 0px",
+            }
+          );
+          periodSections.forEach((section) => scrollspyObserver.observe(section));
+          setActivePeriod(periodSections[0].id);
+        }
+      }
+
+      sidebarLinks.forEach((link) => {
+        link.addEventListener("click", () => {
+          if (!isDesktopItinerary()) return;
+          const id = link.getAttribute("data-period");
+          if (id) setActivePeriod(id);
+        });
+      });
+
+      setupScrollspy();
+      if (typeof desktopItineraryQuery.addEventListener === "function") {
+        desktopItineraryQuery.addEventListener("change", setupScrollspy);
+      } else if (typeof desktopItineraryQuery.addListener === "function") {
+        desktopItineraryQuery.addListener(setupScrollspy);
+      }
     })();
   </script>
 </body>

@@ -11,7 +11,7 @@ const ABOUT_LINKS = [
   { label: "Privacy & Terms", href: "#" },
 ];
 
-const NAV_ASSET_VERSION = "nav-8";
+const NAV_ASSET_VERSION = "nav-9";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -181,18 +181,7 @@ export function renderSiteNav({
   let centerLinks = "";
   let mobileScrollLinks = "";
 
-  if (isToday) {
-    const desktopPeriods = renderPeriodLinks(periodLinks, {
-      className: "leo-nav-period-links leo-nav-period-links--inline",
-    });
-    centerLinks = desktopPeriods
-      ? `<div class="leo-nav-center-links">${desktopPeriods}</div>`
-      : "";
-    mobileScrollLinks = renderPeriodLinks(periodLinks, {
-      className: "leo-nav-period-links leo-nav-period-links--scroll",
-      id: "leo-nav-mobile-periods",
-    });
-  } else {
+  if (!isToday) {
     const inlineLinks = renderInlineLinks(navCities);
     centerLinks = `<div class="leo-nav-center-links">${inlineLinks}</div>`;
     mobileScrollLinks = renderCityLinks(navCities, {

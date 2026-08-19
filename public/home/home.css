@@ -119,17 +119,6 @@ p {
 }
 
 /* —— Nav (legacy brand/footer only; primary nav lives in /nav/nav.css) —— */
-.brand {
-  font-family: var(--font-display);
-  font-size: 20px;
-  color: var(--ink);
-}
-
-.brand--footer {
-  color: #fff;
-  font-size: 17px;
-}
-
 .btn-pill {
   display: inline-flex;
   align-items: center;
@@ -160,53 +149,7 @@ p {
   color: var(--ink);
 }
 
-.app-store {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--ink);
-  border: 1px solid #000;
-  border-radius: 9px;
-  color: #fff;
-}
-
-.app-store--light {
-  background: #fff;
-  border-color: var(--leo-blue);
-  color: var(--leo-blue);
-}
-
-.app-store-icon {
-  width: 15px;
-  height: 17px;
-  border-radius: 3px;
-  background: #3a3a3a;
-  flex: none;
-}
-
-.app-store--light .app-store-icon {
-  background: #d8e0f2;
-}
-
-.app-store-text {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  line-height: 1.15;
-}
-
-.app-store-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 8px;
-}
-
-.app-store-name {
-  font-family: var(--font-display);
-  font-size: 14px;
-}
-
-/* —— Hero: full-width intro + expandable period bands —— */
+/* App store base styles live in /site/site.css; hero spacing below */
 .hero {
   /* Collapsed photo floors; frame uses 1fr/6fr/1fr so photo is 75% of band height */
   --band-photo-min: 56px;
@@ -1645,59 +1588,7 @@ p {
   padding-right: 24px;
 }
 
-/* —— Final CTA + footer —— */
-.final-cta {
-  padding: 64px var(--page-gutter);
-  text-align: center;
-  background: var(--leo-blue);
-  color: #fff;
-}
-
-.final-cta h2 {
-  font-size: clamp(24px, 4vw, 30px);
-  margin-bottom: 20px;
-}
-
-.site-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 32px var(--page-gutter);
-  background: var(--ink);
-  color: #888;
-  flex-wrap: wrap;
-}
-
-.footer-brand p {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 8px;
-}
-
-.footer-cols {
-  display: flex;
-  gap: 36px;
-  flex-wrap: wrap;
-  font-family: var(--font-display);
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-.footer-cols strong {
-  display: block;
-  color: #bbb;
-  font-weight: 400;
-}
-
-.footer-cols a:hover,
-.footer-cols span {
-  color: #aaa;
-}
-
-.footer-cols a:hover {
-  color: #fff;
-}
+/* Final CTA + footer styles live in /site/site.css */
 
 /* —— Responsive —— */
 @media (max-width: 800px) {
@@ -1989,14 +1880,6 @@ p {
   .cities-suggest {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .site-footer {
-    flex-direction: column;
-  }
-
-  .footer-cols {
-    gap: 24px;
   }
 }
 

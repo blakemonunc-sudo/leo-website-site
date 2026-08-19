@@ -2,6 +2,7 @@ import { publishedCities, cityTodayPath } from "../config/cities.js";
 import { buildHeroProxyPath } from "./images.js";
 import { leoMagicAssetTags, renderLeoMagicIndicator } from "./leo-magic.js";
 import { navAssetTags, renderSiteNav } from "./render-nav.js";
+import { renderSiteClosing, siteChromeAssetTags } from "./render-site-chrome.js";
 import {
   buildActivityCopy,
   buildPeriodWeatherLine,
@@ -325,6 +326,7 @@ export function renderHomePage(packResults = null) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
   <link rel="stylesheet" href="/home/home.css?v=map-cluster-1">
+  ${siteChromeAssetTags()}
   ${leoMagicAssetTags()}
   ${navAssetTags()}
 </head>
@@ -542,47 +544,7 @@ export function renderHomePage(packResults = null) {
     </div>
   </section>
 
-  <section class="final-cta">
-    <h2>Unplan your next trip, with Leo.</h2>
-    <a class="app-store app-store--light" href="#" aria-label="Download on the App Store">
-      <span class="app-store-icon" aria-hidden="true"></span>
-      <span class="app-store-text">
-        <span class="app-store-eyebrow">Download on the</span>
-        <span class="app-store-name">App Store</span>
-      </span>
-    </a>
-  </section>
-
-  <footer class="site-footer">
-    <div class="footer-brand">
-      <div class="brand brand--footer">Leo <span aria-hidden="true">☺</span></div>
-      <p>The spontaneous travel guide</p>
-    </div>
-    <div class="footer-cols">
-      <div>
-        <strong>Cities</strong>
-        <a href="${cityTodayPath("tokyo")}">Tokyo</a>
-        <a href="${cityTodayPath("paris")}">Paris</a>
-        <span>New York (soon)</span>
-      </div>
-      <div>
-        <strong>Company</strong>
-        <a href="#">About</a>
-        <a href="#">How we curate</a>
-        <a href="#">Contact</a>
-      </div>
-      <div>
-        <strong>Legal</strong>
-        <a href="#">Privacy</a>
-        <a href="#">Terms</a>
-      </div>
-      <div>
-        <strong>Follow</strong>
-        <a href="#">Instagram</a>
-        <a href="#">X</a>
-      </div>
-    </div>
-  </footer>
+  ${renderSiteClosing()}
 
   <script src="/home/home.js?v=feature-replay-1" defer></script>
 </body>

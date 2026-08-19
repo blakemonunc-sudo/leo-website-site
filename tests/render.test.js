@@ -12,11 +12,13 @@ import {
   capitalizeSentenceStart,
   buildPeriodDayName,
   buildPeriodHeader,
+  activityHeroTitle,
   formatHeroPeriodName,
   formatUpdatedAt,
   normalizeWebsiteUrl,
   APP_STORE_URL,
   buildPeriodWeatherLine,
+  buildDaySummary,
   formatDurationHoursLabel,
   conditionsLabelFromLeoMagicPct,
   periodHasActivity,
@@ -28,6 +30,46 @@ import {
 } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
 import { cityTodayPath, parseCityTodayPath } from "../config/cities.js";
+
+test("buildDaySummary derives dominant condition and temp range", () => {
+  const summary = buildDaySummary([
+    {
+      index: 1,
+      label: "Clear · Morning",
+      tempMinC: 20,
+      tempMaxC: 24,
+      activity: { type: "sight", title: "Park" },
+    },
+    {
+      index: 2,
+      label: "Clear · Lunch",
+      tempMinC: 28,
+      tempMaxC: 32,
+      activity: { type: "foodDrink", title: "Cafe" },
+    },
+    {
+      index: 3,
+      label: "Cloudy · Afternoon",
+      tempMinC: 24,
+      tempMaxC: 26,
+      activity: { type: "sideQuest", title: "Station" },
+    },
+  ]);
+
+  assert.equal(summary.symbol, "☀️");
+  assert.equal(summary.tempRange, "68–90°F");
+  assert.match(summary.sentence, /Mostly clear today, from 68–90°F\./);
+});
+
+test("buildDaySummary returns empty values when no active periods", () => {
+  const summary = buildDaySummary([
+    { index: 1, label: "Clear · Morning" },
+    { index: 2, label: "Clear · Lunch", activity: null },
+  ]);
+  assert.equal(summary.symbol, "");
+  assert.equal(summary.tempRange, "");
+  assert.equal(summary.sentence, "");
+});
 
 test("formatDurationHoursLabel matches website duration notation", () => {
   assert.equal(formatDurationHoursLabel(2), "2 hrs");
@@ -255,6 +297,21 @@ test("buildPeriodHeader formats by activity type", () => {
   );
 });
 
+test("activityHeroTitle returns activity name only for hero overlay", () => {
+  assert.equal(
+    activityHeroTitle({ type: "sight", place: "Shinjuku Gyoen", title: "Gyoen Park" }),
+    "Shinjuku Gyoen"
+  );
+  assert.equal(activityHeroTitle({ type: "sight", title: "Louvre" }), "Louvre");
+  assert.equal(activityHeroTitle({ type: "foodDrink", title: "Afuri Lumine" }), "Afuri Lumine");
+  assert.equal(
+    activityHeroTitle({ type: "sideQuest", title: "Station", webTitle: "Ride the rails" }),
+    "Ride the rails"
+  );
+  assert.equal(activityHeroTitle({ type: "sideQuest", title: "Station" }), "Station");
+  assert.equal(activityHeroTitle({ type: "sideQuest" }), "Side Quest!");
+});
+
 test("buildPeriodHeader special-cases Coffee by start hour", () => {
   assert.equal(
     buildPeriodHeader(
@@ -344,6 +401,12 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             priceRange: "¥¥",
             currency: "¥",
             leoMagicPct: 82,
+            conditionWeights: { openHours: 0.1, location: 0.9, weather: 0.5 },
+            conditionSentences: {
+              openHours: "Shinjuku Gyoen is open.",
+              location: "Shinjuku Gyoen is nearby.",
+              weather: "You'll be outside in pleasant weather.",
+            },
             durationHours: 2,
             setting: "Mixed Inside & Outside",
             website: "https://www.env.go.jp/garden/shinjukugyoen/",
@@ -391,14 +454,33 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   });
 
   assert.match(html, /What to Do in Tokyo Today/);
-  assert.match(html, />Jul 08, 2026</);
-  assert.doesNotMatch(html, /Updated Jul 08/);
+  assert.match(html, /today-eyebrow">TOKYO · Jul 08, 2026</);
+  assert.match(html, /today-accent">Today</);
+  assert.doesNotMatch(html, /class="updated"/);
   assert.match(html, /Tokyo changes by the hour/);
+  assert.doesNotMatch(html, /today-app-band/);
+  assert.doesNotMatch(html, /Download Leo for iOS/);
+  assert.match(html, /today-day-summary/);
+  assert.match(html, /Mostly clear today, from 68–86°F\./);
+  assert.match(html, /today-layout/);
+  assert.match(html, /today-sidebar--desktop/);
+  assert.match(html, /Today&rsquo;s Itinerary/);
+  assert.match(html, /today-itinerary--embedded/);
+  assert.match(html, /id="today-itinerary-mobile"/);
+  assert.match(html, /today-itinerary--sidebar/);
+  assert.match(html, /id="today-itinerary"/);
+  assert.match(html, /today-itinerary-link/);
+  assert.match(html, /today-itinerary-period">Morning</);
+  assert.match(html, /today-itinerary-activity">Shinjuku Gyoen</);
   assert.doesNotMatch(html, /band-meta-weather/);
   assert.match(html, /☀️ 72°F/);
-  assert.match(html, /period-title">Morning at Shinjuku Gyoen</);
-  assert.match(html, /period-title">Lunch at Afuri Lumine</);
-  assert.match(html, /period-title">Afternoon: Ride the Yamanote</);
+  assert.match(html, /hero-badge--period">Morning</);
+  assert.match(html, /hero-badge--weather">☀️ 72°F</);
+  assert.match(html, /hero-badges[\s\S]*?hero-badge--period">Morning[\s\S]*?hero-badge--weather">☀️ 72°F/);
+  assert.match(html, /hero-title">Shinjuku Gyoen</);
+  assert.match(html, /hero-title">Afuri Lumine</);
+  assert.match(html, /hero-title">Ride the Yamanote</);
+  assert.doesNotMatch(html, /class="period-title"/);
   assert.doesNotMatch(html, /Afternoon Side Quest!/);
   assert.doesNotMatch(html, /period-meta/);
   assert.doesNotMatch(html, /period-heading/);
@@ -410,17 +492,34 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens/);
   assert.doesNotMatch(html, /Stroll the lawns and glasshouse/);
   assert.match(html, /Open Leo for more sights nearby\./);
-  assert.match(html, /period-action--download[\s\S]*?Download the app[\s\S]*?→/);
-  assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, /period-directions[\s\S]*?Directions[\s\S]*?→/);
+  assert.equal((html.match(/class="period-divider"/g) ?? []).length, 2);
   assert.match(
     html,
-    /period-actions[\s\S]*?period-action--directions[\s\S]*?Directions[\s\S]*?↗[\s\S]*?period-action--download/
+    /id="period-1"[\s\S]*?period-directions[\s\S]*?<hr class="period-divider">[\s\S]*?<\/section>/
   );
-  assert.match(html, /<button type="button" class="period-action period-action--directions"/);
+  assert.match(
+    html,
+    /id="period-2"[\s\S]*?period-directions[\s\S]*?<hr class="period-divider">[\s\S]*?<\/section>[\s\S]*?today-mobile-nudge/
+  );
+  assert.doesNotMatch(html, /id="period-3"[\s\S]*?period-divider/);
+  assert.doesNotMatch(html, /period-action--download/);
+  assert.doesNotMatch(html, /Download the app[\s\S]*?period-actions/);
+  assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, /<button type="button" class="period-directions"/);
+  assert.match(html, /today-mobile-nudge/);
+  assert.match(html, /section class="final-cta"/);
+  assert.match(html, /Unplan your next trip, with Leo/);
+  assert.match(html, /footer class="site-footer"/);
+  assert.match(html, /The spontaneous travel guide/);
+  assert.match(html, /\/site\/site\.css/);
+  assert.doesNotMatch(html, /today-bottom-cta/);
+  assert.match(html, /IntersectionObserver/);
+  assert.match(html, /today-itinerary-link\.is-active/);
   assert.doesNotMatch(html, /class="stats"/);
   assert.doesNotMatch(html, /app-plug-link/);
   assert.doesNotMatch(html, /Explore in the app/);
-  assert.doesNotMatch(html, /Get directions/);
+  assert.match(html, /today-mobile-nudge-copy">Get directions &amp; personalized plans in Leo</);
   assert.doesNotMatch(html, /Visit website/);
   assert.doesNotMatch(html, /maps\.google\.com/);
   assert.match(html, new RegExp(`/img/${imageId}`));
@@ -432,29 +531,21 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(
     html,
     new RegExp(
-      `period-divider[\\s\\S]*?/img/${imageId}[\\s\\S]*?hero-credit[\\s\\S]*?period-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section[\\s\\S]*?period-actions`
+      `/img/${imageId}[\\s\\S]*?hero-overlay[\\s\\S]*?hero-title[\\s\\S]*?description[\\s\\S]*?app-plug[\\s\\S]*?info-section[\\s\\S]*?period-directions`
     )
   );
   assert.match(
     html,
-    /info-hstack[\s\S]*?💴[\s\S]*?¥¥[\s\S]*?info-vdivider[\s\S]*?⏱️[\s\S]*?2 hrs[\s\S]*?info-vdivider[\s\S]*?☀️ 72°F[\s\S]*?Mixed Inside &amp; Outside/
+    /info-hstack[\s\S]*?¥¥[\s\S]*?2 hrs[\s\S]*?Mixed Inside &amp; Outside/
   );
   assert.doesNotMatch(html, /Price range:/);
   assert.doesNotMatch(html, /Duration:/);
   assert.doesNotMatch(html, /Setting:/);
   assert.doesNotMatch(html, /🏡/);
-  assert.match(
-    html,
-    /info-section[\s\S]*?leo-magic[\s\S]*?Conditions: Excellent/
-  );
-  assert.match(html, /data-pct="82"/);
-  assert.match(html, /data-tone="good"/);
-  assert.match(html, /leo-magic\/leo-magic\.css/);
-  assert.match(html, /stroke-width="2\.25"/);
-  assert.match(
-    html,
-    /info-hstack[\s\S]*?Mixed Inside &amp; Outside[\s\S]*?info-divider[\s\S]*?Conditions: Excellent/
-  );
+  assert.doesNotMatch(html, /info-conditions-hstack/);
+  assert.doesNotMatch(html, /Conditions: Excellent/);
+  assert.doesNotMatch(html, /info-conditions-placeholder/);
+  assert.doesNotMatch(html, /info-section[\s\S]*?leo-magic/);
   assert.match(html, /☀️ 86°F[\s\S]*?Outside/);
   assert.match(html, /Yuzu shio ramen near Shinjuku\./);
   assert.match(html, /Follow the loop and see the city shift with every stop\./);
@@ -464,6 +555,48 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /activity-copy/);
   assert.doesNotMatch(html, /imagedelivery\.net/);
   assert.doesNotMatch(html, /cfimg:\/\//);
+});
+
+test("renderCityTodayPage omits conditions block from info section", () => {
+  const html = renderCityTodayPage({
+    city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+    pack: {
+      localDate: "2026-07-07",
+      generatedAt: "2026-07-07T15:30:00.000Z",
+      periods: [
+        {
+          index: 1,
+          label: "Clear · Morning",
+          tempMinC: 20,
+          tempMaxC: 24,
+          activity: {
+            type: "sight",
+            title: "Louvre",
+            place: "Louvre",
+            dayPeriodConnector: "at",
+            connector: "at",
+            teaserConnector: "a",
+            teaser: "museum stop",
+            intro: "Unwind at the Louvre, a famous museum.",
+            webDescription: "The Louvre is a world-famous museum in Paris.",
+            leoMagicPct: 60,
+            conditionWeights: { openHours: 0.8, location: 0.3 },
+            conditionSentences: {
+              openHours: "Louvre is open.",
+              location: "Louvre is nearby.",
+              weather: "Louvre is outside in pleasant weather.",
+            },
+          },
+        },
+      ],
+    },
+    error: null,
+  });
+
+  assert.doesNotMatch(html, /info-conditions-hstack/);
+  assert.doesNotMatch(html, /Conditions:/);
+  assert.doesNotMatch(html, /info-conditions-placeholder/);
+  assert.doesNotMatch(html, /Louvre is open\./);
 });
 
 test("renderCityTodayPage hides day periods with no activity", () => {
@@ -489,8 +622,11 @@ test("renderCityTodayPage hides day periods with no activity", () => {
     error: null,
   });
 
-  assert.match(html, /period-title">Breakfast at Babka Zana</);
-  assert.match(html, /href="#period-1">Breakfast</);
+  assert.match(html, /hero-title">Babka Zana</);
+  assert.match(html, /today-itinerary-period">Breakfast</);
+  assert.match(html, /today-itinerary--embedded/);
+  assert.match(html, /today-itinerary--sidebar/);
+  assert.doesNotMatch(html, /leo-nav-period-links/);
   assert.doesNotMatch(html, /No activity scheduled/);
   assert.doesNotMatch(html, /id="period-5"/);
   assert.doesNotMatch(html, /href="#period-5"/);
