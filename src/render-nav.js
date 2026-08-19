@@ -4,14 +4,25 @@ const APP_STORE_URL =
   "https://apps.apple.com/us/app/leo-spontaneous-travel-guide/id6755015197";
 
 const ABOUT_LINKS = [
-  { label: "Our Story", href: "#" },
-  { label: "Features", href: "#" },
-  { label: "Pricing", href: "#" },
-  { label: "Support", href: "#" },
-  { label: "Privacy & Terms", href: "#" },
+  { label: "Our Story" },
+  { label: "Features" },
+  { label: "Pricing" },
+  { label: "Support" },
+  { label: "Privacy & Terms" },
 ];
 
-const NAV_ASSET_VERSION = "nav-9";
+const NAV_ASSET_VERSION = "nav-10";
+
+function renderNavTextItem(label, { className = "leo-nav-link" } = {}) {
+  return `<span class="${escapeHtml(className)} leo-nav-link--soon">${escapeHtml(label)}</span>`;
+}
+
+function renderNavCityItem(city, { className = "leo-nav-link" } = {}) {
+  if (city.comingSoon) {
+    return renderNavTextItem(city.name, { className });
+  }
+  return `<a class="${escapeHtml(className)}" href="${escapeHtml(cityTodayPath(city.webCityId))}">${escapeHtml(city.name)}</a>`;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -22,10 +33,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function cityHref(city) {
-  if (city.comingSoon) return "#";
-  return cityTodayPath(city.webCityId);
-}
 
 function renderLogoMark() {
   return `<span class="leo-nav-logo" aria-hidden="true"></span>`;
@@ -63,18 +70,13 @@ function renderWordmark({ variant, city, compact = false, href = "/" }) {
 
 function renderCityLinks(cities, { className = "leo-nav-city-links", id = "" } = {}) {
   const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
-  const links = cities
-    .map(
-      (city) =>
-        `<a class="leo-nav-link" href="${escapeHtml(cityHref(city))}"${city.comingSoon ? ' data-coming-soon="true"' : ""}>${escapeHtml(city.name)}</a>`
-    )
-    .join("");
+  const links = cities.map((city) => renderNavCityItem(city, { className })).join("");
   return `<nav class="${escapeHtml(className)}"${idAttr} aria-label="Cities">${links}</nav>`;
 }
 
 function renderAboutDropdown() {
   const items = ABOUT_LINKS.map(
-    (link) => `<a class="leo-nav-dropdown-link" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+    (link) => renderNavTextItem(link.label, { className: "leo-nav-dropdown-link" })
   ).join("");
   return `<div class="leo-nav-about">
     <button type="button" class="leo-nav-link leo-nav-about-trigger" aria-expanded="false" aria-haspopup="true">About</button>
@@ -94,8 +96,11 @@ function renderInlineLinks(cities) {
 function renderCitySwitcher(cities, currentCityId) {
   const items = cities
     .map((city) => {
+      if (city.comingSoon) {
+        return renderNavTextItem(city.name, { className: "leo-nav-city-switcher-link" });
+      }
       const active = city.webCityId === currentCityId ? ' aria-current="page"' : "";
-      return `<a class="leo-nav-city-switcher-link" href="${escapeHtml(cityHref(city))}"${active}${city.comingSoon ? ' data-coming-soon="true"' : ""}>${escapeHtml(city.name)}</a>`;
+      return `<a class="leo-nav-city-switcher-link" href="${escapeHtml(cityTodayPath(city.webCityId))}"${active}>${escapeHtml(city.name)}</a>`;
     })
     .join("");
   return `<div class="leo-nav-city-switcher" id="leo-nav-city-menu" hidden role="menu" aria-label="Leo cities">
@@ -110,14 +115,9 @@ function renderHamburger() {
 }
 
 function renderMenu(cities) {
-  const cityItems = cities
-    .map(
-      (city) =>
-        `<a class="leo-nav-menu-link" href="${escapeHtml(cityHref(city))}"${city.comingSoon ? ' data-coming-soon="true"' : ""}>${escapeHtml(city.name)}</a>`
-    )
-    .join("");
+  const cityItems = cities.map((city) => renderNavCityItem(city, { className: "leo-nav-menu-link" })).join("");
   const aboutItems = ABOUT_LINKS.map(
-    (link) => `<a class="leo-nav-menu-link" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+    (link) => renderNavTextItem(link.label, { className: "leo-nav-menu-link" })
   ).join("");
 
   return `<div class="leo-nav-menu" id="leo-nav-menu" hidden>

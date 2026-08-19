@@ -131,6 +131,15 @@
   color: var(--leo-red);
 }
 
+.leo-nav-link--soon {
+  color: var(--leo-nav-muted, #737373);
+  cursor: default;
+}
+
+.leo-nav-link--soon:hover {
+  color: var(--leo-nav-muted, #737373);
+}
+
 .leo-nav-about {
   position: relative;
 }

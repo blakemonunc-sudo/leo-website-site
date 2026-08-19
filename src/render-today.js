@@ -1,6 +1,7 @@
 import { buildHeroProxyPath } from "./images.js";
 import { navAssetTags, renderSiteNav } from "./render-nav.js";
 import { renderSiteClosing, siteChromeAssetTags } from "./render-site-chrome.js";
+import { buildTodayHeadTags, formatFreshnessEyebrow } from "./seo-today.js";
 
 export { conditionsLabelFromLeoMagicPct } from "./leo-magic.js";
 
@@ -455,7 +456,29 @@ export function resolveGpCategoryDisplayName(activity) {
   return activity?.category?.trim() ?? "";
 }
 
-function renderInfoChip({ symbol, text, joinWithDot = false }) {
+function buildDurationAriaLabel(hours) {
+  const label = formatDurationHoursLabel(hours);
+  if (!label) return "";
+  if (label.endsWith(" min")) {
+    const minutes = label.replace(" min", "");
+    return `Duration: ${minutes} minute${minutes === "1" ? "" : "s"}`;
+  }
+  if (label === "1 hr") return "Duration: 1 hour";
+  if (label.endsWith(" hrs")) return `Duration: ${label.replace(" hrs", " hours")}`;
+  return `Duration: ${label}`;
+}
+
+function buildWeatherAriaLabel(period) {
+  const { condition } = parsePeriodLabel(period?.label);
+  const avgTemp = formatAvgTemp(period?.tempMinC, period?.tempMaxC);
+  const parts = [];
+  if (avgTemp) parts.push(avgTemp);
+  if (condition) parts.push(condition.toLowerCase());
+  if (!parts.length) return "";
+  return `Weather: ${parts.join(", ")}`;
+}
+
+function renderInfoChip({ symbol, text, joinWithDot = false, ariaLabel = "" }) {
   const pieces = [];
   if (symbol) {
     pieces.push(`<span class="info-symbol" aria-hidden="true">${escapeHtml(symbol)}</span>`);
@@ -467,7 +490,8 @@ function renderInfoChip({ symbol, text, joinWithDot = false }) {
     pieces.push(`<span class="info-text">${escapeHtml(text)}</span>`);
   }
   if (!pieces.length) return "";
-  return `<div class="info-chip">${pieces.join("")}</div>`;
+  const labelAttr = ariaLabel ? ` aria-label="${escapeHtml(ariaLabel)}"` : "";
+  return `<div class="info-chip"${labelAttr}>${pieces.join("")}</div>`;
 }
 
 export function renderInfoSection(activity, { city, period } = {}) {
@@ -476,23 +500,30 @@ export function renderInfoSection(activity, { city, period } = {}) {
 
   const priceRange = activity.priceRange?.trim();
   if (priceRange) {
-    chips.push(renderInfoChip({ text: priceRange }));
+    chips.push(renderInfoChip({ text: priceRange, ariaLabel: `Price level: ${priceRange}` }));
   }
 
   const durationLabel = formatDurationHoursLabel(activity.durationHours);
   if (durationLabel) {
-    chips.push(renderInfoChip({ text: durationLabel }));
+    chips.push(
+      renderInfoChip({
+        text: durationLabel,
+        ariaLabel: buildDurationAriaLabel(activity.durationHours),
+      })
+    );
   }
 
   const setting = activity.setting?.trim();
   if (setting) {
-    chips.push(renderInfoChip({ text: setting }));
+    chips.push(renderInfoChip({ text: setting, ariaLabel: `Setting: ${setting}` }));
   }
 
   if (activity.type === "foodDrink") {
     const categoryName = resolveGpCategoryDisplayName(activity);
     if (categoryName) {
-      chips.push(renderInfoChip({ text: categoryName }));
+      chips.push(
+        renderInfoChip({ text: categoryName, ariaLabel: `Category: ${categoryName}` })
+      );
     }
   }
 
@@ -502,14 +533,18 @@ export function renderInfoSection(activity, { city, period } = {}) {
   return `<div class="info-section">${hstack}</div>`;
 }
 
-function renderHeroBadgeStack(periodBadge, weatherBadge) {
+function renderHeroBadgeStack(periodBadge, weatherBadge, { weatherAriaLabel = "" } = {}) {
   if (!periodBadge && !weatherBadge) return "";
+
+  const weatherAttr = weatherAriaLabel
+    ? ` aria-label="${escapeHtml(weatherAriaLabel)}"`
+    : "";
 
   if (periodBadge && weatherBadge) {
     return `<div class="hero-badges">
     <span class="hero-badge hero-badge--period">
       <span class="hero-badge-period-name">${escapeHtml(periodBadge)}</span>
-      <span class="hero-badge-weather">${escapeHtml(weatherBadge)}</span>
+      <span class="hero-badge-weather"${weatherAttr}>${escapeHtml(weatherBadge)}</span>
     </span>
   </div>`;
   }
@@ -535,7 +570,9 @@ function renderHero(activity, period, headerTitle) {
 
   const periodBadge = buildPeriodDayName(period);
   const weatherBadge = buildPeriodWeatherLine(period);
-  const badgeStack = renderHeroBadgeStack(periodBadge, weatherBadge);
+  const badgeStack = renderHeroBadgeStack(periodBadge, weatherBadge, {
+    weatherAriaLabel: buildWeatherAriaLabel(period),
+  });
   const overlayBadges = `<div class="hero-overlay">
     ${badgeStack}
     ${headerTitle ? `<h2 class="hero-title">${escapeHtml(headerTitle)}</h2>` : ""}
@@ -622,10 +659,9 @@ export function renderTodayPage(packResults) {
   return renderCityTodayPage(first);
 }
 
-export function renderCityTodayPage({ city, pack, error }) {
+export function renderCityTodayPage({ city, pack, error, origin = "" }) {
   const cityName = city?.name ?? "City";
   const title = `What to Do in ${cityName} Today`;
-  const updated = formatUpdatedAt(pack?.generatedAt, city?.timezone);
   const intro = `${cityName} changes by the hour. Leo recommends things to do in ${cityName} for every period of the day. Places are picked based on open hours, the weather, and distance. Updated daily.`;
 
   const periods = pack
@@ -647,7 +683,15 @@ export function renderCityTodayPage({ city, pack, error }) {
     </div>`;
   }
 
-  const eyebrow = updated ? `${cityName.toUpperCase()} · ${updated}` : cityName.toUpperCase();
+  const eyebrow = formatFreshnessEyebrow(pack?.generatedAt, city?.timezone, cityName);
+  const headTags = buildTodayHeadTags({
+    city,
+    pack,
+    periods,
+    origin,
+    periodHasActivity,
+    buildPeriodDayName,
+  });
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -655,6 +699,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} — Leo</title>
+  ${headTags}
   ${navAssetTags()}
   ${siteChromeAssetTags()}
   <style>
@@ -1016,11 +1061,10 @@ export function renderCityTodayPage({ city, pack, error }) {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 999px;
-      border: 0;
-      background: rgba(0, 0, 0, 0.55);
-      color: #fff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      border-radius: var(--hero-badge-corner-radius);
+      border: 0.1pt solid var(--leo-blue-mid);
+      background: color-mix(in srgb, var(--leo-blue-dark) 80%, transparent);
+      color: var(--leo-blue-paper);
     }
     .hero-credit-icon {
       font-family: var(--font-display);

@@ -8,10 +8,25 @@ import { fetchAllPublishedPacks, fetchPublishedCityPack } from "./api.js";
 import { isValidCfImageId, proxyHeroImage } from "./images.js";
 import { renderHomePage } from "./render-home.js";
 import { renderCityTodayPage } from "./render-today.js";
+import {
+  buildSitemapEntries,
+  renderRobotsTxt,
+  renderSitemapXml,
+} from "./seo-today.js";
 
 const HTML_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "public, max-age=60",
+};
+
+const XML_HEADERS = {
+  "Content-Type": "application/xml; charset=utf-8",
+  "Cache-Control": "public, max-age=300",
+};
+
+const TEXT_HEADERS = {
+  "Content-Type": "text/plain; charset=utf-8",
+  "Cache-Control": "public, max-age=3600",
 };
 
 function notFound(message = "Not found") {
@@ -35,12 +50,23 @@ async function handleHomePage(env) {
   return new Response(renderHomePage(packResults), { status: 200, headers: HTML_HEADERS });
 }
 
-async function handleCityTodayPage(env, webCityId) {
+async function handleCityTodayPage(env, webCityId, origin) {
   const result = await fetchPublishedCityPack(env, webCityId);
   if (!result) return notFound("Unknown city");
 
-  const html = renderCityTodayPage(result);
+  const html = renderCityTodayPage({ ...result, origin });
   return new Response(html, { status: 200, headers: HTML_HEADERS });
+}
+
+async function handleSitemap(env, origin) {
+  const packResults = await fetchAllPublishedPacks(env);
+  const entries = buildSitemapEntries(origin, packResults);
+  const xml = renderSitemapXml(origin, entries);
+  return new Response(xml, { status: 200, headers: XML_HEADERS });
+}
+
+function handleRobots(origin) {
+  return new Response(renderRobotsTxt(origin), { status: 200, headers: TEXT_HEADERS });
 }
 
 function redirectLegacyToday(url) {
@@ -60,6 +86,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const { pathname } = url;
+    const origin = url.origin;
 
     if (pathname === "/") {
       if (request.method !== "GET") {
@@ -82,7 +109,7 @@ export default {
       }
       if (!getPublishedCity(cityTodayId)) return notFound("Unknown city");
       try {
-        return await handleCityTodayPage(env, cityTodayId);
+        return await handleCityTodayPage(env, cityTodayId, origin);
       } catch (err) {
         console.error(`[SITE] city today page error (${cityTodayId}):`, err?.message ?? err);
         return new Response("Failed to load today's plan", { status: 500 });
@@ -104,6 +131,20 @@ export default {
         cities: publishedCities.map((c) => c.webCityId),
         timestamp: new Date().toISOString(),
       });
+    }
+
+    if (pathname === "/sitemap.xml") {
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      return handleSitemap(env, origin);
+    }
+
+    if (pathname === "/robots.txt") {
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      return handleRobots(origin);
     }
 
     return env.ASSETS.fetch(request);

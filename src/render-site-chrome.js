@@ -37,19 +37,19 @@ export function renderSiteFooter() {
       </div>
       <div>
         <strong>Company</strong>
-        <a href="#">About</a>
-        <a href="#">How we curate</a>
-        <a href="#">Contact</a>
+        <span>About</span>
+        <span>How we curate</span>
+        <span>Contact</span>
       </div>
       <div>
         <strong>Legal</strong>
-        <a href="#">Privacy</a>
-        <a href="#">Terms</a>
+        <span>Privacy</span>
+        <span>Terms</span>
       </div>
       <div>
         <strong>Follow</strong>
-        <a href="#">Instagram</a>
-        <a href="#">X</a>
+        <span>Instagram</span>
+        <span>X</span>
       </div>
     </div>
   </footer>`;

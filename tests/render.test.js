@@ -104,6 +104,9 @@ test("renderInfoSection appends gp category chip for foodDrink only", () => {
     category: "Ramen",
   });
   assert.match(foodHtml, /info-hstack[\s\S]*?¥¥[\s\S]*?30 min[\s\S]*?Ramen/);
+  assert.match(foodHtml, /aria-label="Price level: ¥¥"/);
+  assert.match(foodHtml, /aria-label="Duration: 30 minutes"/);
+  assert.match(foodHtml, /aria-label="Category: Ramen"/);
   assert.equal((foodHtml.match(/info-chip/g) ?? []).length, 3);
 
   const sightHtml = renderInfoSection({
@@ -422,6 +425,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   const imageId = "ce236d9a-9a78-43d7-0e65-31affc694c00";
   const html = renderCityTodayPage({
     city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+    origin: "https://leo.example.com",
     pack: {
       localDate: "2026-07-07",
       generatedAt: "2026-07-07T15:30:00.000Z",
@@ -502,7 +506,23 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   });
 
   assert.match(html, /What to Do<span class="today-lede-line2">in Tokyo Today<\/span>/);
-  assert.match(html, /today-eyebrow">TOKYO · Jul 08, 2026</);
+  assert.match(html, /today-eyebrow">TOKYO · Updated Jul 8, 2026 at 12:30 AM JST</);
+  assert.match(html, /meta name="description" content="What to do in Tokyo today/);
+  assert.match(
+    html,
+    /link rel="canonical" href="https:\/\/leo\.example\.com\/what-to-do-in-tokyo-today"/
+  );
+  assert.match(html, /property="og:title" content="What to Do in Tokyo Today"/);
+  assert.match(html, /property="og:image" content="https:\/\/leo\.example\.com\/img\//);
+  assert.match(html, /name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /application\/ld\+json/);
+  assert.match(html, /"@type":"ItemList"/);
+  assert.match(html, /"@type":"TouristAttraction","name":"Shinjuku Gyoen"/);
+  assert.match(html, /aria-label="Price level: ¥¥"/);
+  assert.match(html, /aria-label="Duration: 2 hours"/);
+  assert.match(html, /aria-label="Duration: 30 minutes"/);
+  assert.match(html, /aria-label="Category: Ramen"/);
+  assert.match(html, /aria-label="Weather: 72°F, clear"/);
   assert.doesNotMatch(html, /today-accent/);
   assert.doesNotMatch(html, /class="updated"/);
   assert.match(html, /Tokyo changes by the hour/);
@@ -523,8 +543,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /band-meta-weather/);
   assert.match(html, /☀️ 72°F/);
   assert.match(html, /hero-badge--period[\s\S]*?hero-badge-period-name">Morning</);
-  assert.match(html, /hero-badge-weather">☀️ 72°F</);
-  assert.match(html, /hero-badge--period[\s\S]*?hero-badge-period-name">Morning[\s\S]*?hero-badge-weather">☀️ 72°F/);
+  assert.match(html, /hero-badge-weather" aria-label="Weather: 72°F, clear">☀️ 72°F/);
+  assert.match(html, /hero-badge--period[\s\S]*?hero-badge-period-name">Morning[\s\S]*?hero-badge-weather" aria-label="Weather: 72°F, clear">☀️ 72°F/);
   assert.match(html, /hero-title">Shinjuku Gyoen</);
   assert.match(html, /hero-title">Afuri Lumine</);
   assert.match(html, /hero-title">Ride the Yamanote</);
@@ -591,8 +611,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
     /id="period-2"[\s\S]*?info-hstack[\s\S]*?¥¥[\s\S]*?30 min[\s\S]*?Ramen/
   );
   assert.doesNotMatch(html, /Price range:/);
-  assert.doesNotMatch(html, /Duration:/);
-  assert.doesNotMatch(html, /Setting:/);
+  assert.doesNotMatch(html, /info-text">Duration:/);
+  assert.doesNotMatch(html, /info-text">Setting:/);
   assert.doesNotMatch(html, /🏡/);
   assert.doesNotMatch(html, /info-conditions-hstack/);
   assert.doesNotMatch(html, /Conditions: Excellent/);
