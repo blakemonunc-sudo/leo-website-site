@@ -22,6 +22,8 @@ import {
   formatDurationHoursLabel,
   conditionsLabelFromLeoMagicPct,
   periodHasActivity,
+  renderInfoSection,
+  resolveGpCategoryDisplayName,
 } from "../src/render-today.js";
 import {
   activityBandTitle,
@@ -78,6 +80,50 @@ test("formatDurationHoursLabel matches website duration notation", () => {
   assert.equal(formatDurationHoursLabel(0.75), "45 min");
   assert.equal(formatDurationHoursLabel(0.5), "30 min");
   assert.equal(formatDurationHoursLabel(NaN), "");
+});
+
+test("resolveGpCategoryDisplayName reads minimized category and gp_categories shapes", () => {
+  assert.equal(resolveGpCategoryDisplayName({ category: "Ramen" }), "Ramen");
+  assert.equal(
+    resolveGpCategoryDisplayName({ gp_categories: [{ name: "Sushi" }] }),
+    "Sushi"
+  );
+  assert.equal(
+    resolveGpCategoryDisplayName({ gp_categories: { name: "Pub" } }),
+    "Pub"
+  );
+  assert.equal(resolveGpCategoryDisplayName({ category: "  " }), "");
+  assert.equal(resolveGpCategoryDisplayName({}), "");
+});
+
+test("renderInfoSection appends gp category chip for foodDrink only", () => {
+  const foodHtml = renderInfoSection({
+    type: "foodDrink",
+    priceRange: "¥¥",
+    durationHours: 0.5,
+    category: "Ramen",
+  });
+  assert.match(foodHtml, /info-hstack[\s\S]*?¥¥[\s\S]*?30 min[\s\S]*?Ramen/);
+  assert.equal((foodHtml.match(/info-chip/g) ?? []).length, 3);
+
+  const sightHtml = renderInfoSection({
+    type: "sight",
+    priceRange: "¥¥",
+    durationHours: 2,
+    setting: "Outside",
+    category: "Ramen",
+  });
+  assert.match(sightHtml, /Outside/);
+  assert.doesNotMatch(sightHtml, /Ramen/);
+
+  const missingCategoryHtml = renderInfoSection({
+    type: "foodDrink",
+    priceRange: "¥¥",
+    durationHours: 0.5,
+  });
+  assert.match(missingCategoryHtml, /¥¥[\s\S]*?30 min/);
+  assert.doesNotMatch(missingCategoryHtml, /info-chip[\s\S]*Ramen/);
+  assert.equal((missingCategoryHtml.match(/info-chip/g) ?? []).length, 2);
 });
 
 test("conditionsLabelFromLeoMagicPct maps fill bands", () => {
@@ -427,6 +473,8 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             type: "foodDrink",
             title: "Afuri Lumine",
             category: "Ramen",
+            priceRange: "¥¥",
+            durationHours: 0.5,
             description: "Yuzu shio ramen near Shinjuku.",
           },
         },
@@ -453,9 +501,9 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
     error: null,
   });
 
-  assert.match(html, /What to Do in Tokyo Today/);
+  assert.match(html, /What to Do<span class="today-lede-line2">in Tokyo Today<\/span>/);
   assert.match(html, /today-eyebrow">TOKYO · Jul 08, 2026</);
-  assert.match(html, /today-accent">Today</);
+  assert.doesNotMatch(html, /today-accent/);
   assert.doesNotMatch(html, /class="updated"/);
   assert.match(html, /Tokyo changes by the hour/);
   assert.doesNotMatch(html, /today-app-band/);
@@ -474,9 +522,9 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(html, /today-itinerary-activity">Shinjuku Gyoen</);
   assert.doesNotMatch(html, /band-meta-weather/);
   assert.match(html, /☀️ 72°F/);
-  assert.match(html, /hero-badge--period">Morning</);
-  assert.match(html, /hero-badge--weather">☀️ 72°F</);
-  assert.match(html, /hero-badges[\s\S]*?hero-badge--period">Morning[\s\S]*?hero-badge--weather">☀️ 72°F/);
+  assert.match(html, /hero-badge--period[\s\S]*?hero-badge-period-name">Morning</);
+  assert.match(html, /hero-badge-weather">☀️ 72°F</);
+  assert.match(html, /hero-badge--period[\s\S]*?hero-badge-period-name">Morning[\s\S]*?hero-badge-weather">☀️ 72°F/);
   assert.match(html, /hero-title">Shinjuku Gyoen</);
   assert.match(html, /hero-title">Afuri Lumine</);
   assert.match(html, /hero-title">Ride the Yamanote</);
@@ -537,6 +585,10 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.match(
     html,
     /info-hstack[\s\S]*?¥¥[\s\S]*?2 hrs[\s\S]*?Mixed Inside &amp; Outside/
+  );
+  assert.match(
+    html,
+    /id="period-2"[\s\S]*?info-hstack[\s\S]*?¥¥[\s\S]*?30 min[\s\S]*?Ramen/
   );
   assert.doesNotMatch(html, /Price range:/);
   assert.doesNotMatch(html, /Duration:/);
@@ -647,7 +699,7 @@ test("renderTodayPage delegates to city page for first pack result", () => {
       error: null,
     },
   ]);
-  assert.match(html, /What to Do in Tokyo Today/);
+  assert.match(html, /What to Do<span class="today-lede-line2">in Tokyo Today<\/span>/);
 });
 
 test("buildHeroProxyPath is content-addressed by Cloudflare image id", () => {

@@ -440,6 +440,21 @@ export function formatDurationHoursLabel(hours) {
   return `${n.toFixed(1)} hrs`;
 }
 
+/** gp_categories.name from the batch minimizer is exposed on pack activities as `category`. */
+export function resolveGpCategoryDisplayName(activity) {
+  const gpCategories = activity?.gp_categories ?? activity?.gpCategories;
+  if (gpCategories) {
+    if (Array.isArray(gpCategories)) {
+      const name = gpCategories[0]?.name?.trim();
+      if (name) return name;
+    } else if (typeof gpCategories === "object") {
+      const name = gpCategories.name?.trim();
+      if (name) return name;
+    }
+  }
+  return activity?.category?.trim() ?? "";
+}
+
 function renderInfoChip({ symbol, text, joinWithDot = false }) {
   const pieces = [];
   if (symbol) {
@@ -474,10 +489,42 @@ export function renderInfoSection(activity, { city, period } = {}) {
     chips.push(renderInfoChip({ text: setting }));
   }
 
+  if (activity.type === "foodDrink") {
+    const categoryName = resolveGpCategoryDisplayName(activity);
+    if (categoryName) {
+      chips.push(renderInfoChip({ text: categoryName }));
+    }
+  }
+
   if (!chips.length) return "";
 
   const hstack = `<div class="info-hstack">${chips.join("")}</div>`;
   return `<div class="info-section">${hstack}</div>`;
+}
+
+function renderHeroBadgeStack(periodBadge, weatherBadge) {
+  if (!periodBadge && !weatherBadge) return "";
+
+  if (periodBadge && weatherBadge) {
+    return `<div class="hero-badges">
+    <span class="hero-badge hero-badge--period">
+      <span class="hero-badge-period-name">${escapeHtml(periodBadge)}</span>
+      <span class="hero-badge-weather">${escapeHtml(weatherBadge)}</span>
+    </span>
+  </div>`;
+  }
+
+  if (periodBadge) {
+    return `<div class="hero-badges">
+    <span class="hero-badge hero-badge--period">
+      <span class="hero-badge-period-name">${escapeHtml(periodBadge)}</span>
+    </span>
+  </div>`;
+  }
+
+  return `<div class="hero-badges">
+    <span class="hero-badge hero-badge--weather">${escapeHtml(weatherBadge)}</span>
+  </div>`;
 }
 
 function renderHero(activity, period, headerTitle) {
@@ -488,13 +535,7 @@ function renderHero(activity, period, headerTitle) {
 
   const periodBadge = buildPeriodDayName(period);
   const weatherBadge = buildPeriodWeatherLine(period);
-  const badgeStack =
-    periodBadge || weatherBadge
-      ? `<div class="hero-badges">
-    ${periodBadge ? `<span class="hero-badge hero-badge--period">${escapeHtml(periodBadge)}</span>` : ""}
-    ${weatherBadge ? `<span class="hero-badge hero-badge--weather">${escapeHtml(weatherBadge)}</span>` : ""}
-  </div>`
-      : "";
+  const badgeStack = renderHeroBadgeStack(periodBadge, weatherBadge);
   const overlayBadges = `<div class="hero-overlay">
     ${badgeStack}
     ${headerTitle ? `<h2 class="hero-title">${escapeHtml(headerTitle)}</h2>` : ""}
@@ -620,6 +661,7 @@ export function renderCityTodayPage({ city, pack, error }) {
     :root {
       --leo-blue: #3269d9;
       --leo-blue-light: #eaf0fb;
+      --leo-blue-mid: #7ea1e7;
       --leo-blue-lightest: #f5f8fd;
       --leo-blue-dark: #1b294b;
       --leo-blue-paper: #fdfdfe;
@@ -666,12 +708,12 @@ export function renderCityTodayPage({ city, pack, error }) {
     }
     h1 {
       font-family: var(--font-display);
-      font-size: clamp(1.85rem, 5vw, 2.75rem);
+      font-size: clamp(2.3125rem, 6.25vw, 3.4375rem);
       font-weight: 400;
       margin: 0 0 0.85rem;
       line-height: 1.12;
     }
-    .today-accent { color: var(--leo-blue); }
+    .today-lede-line2 { display: block; }
     .intro {
       margin: 0;
       color: var(--ink);
@@ -816,7 +858,7 @@ export function renderCityTodayPage({ city, pack, error }) {
       cursor: pointer;
       text-decoration: none;
     }
-    .period-directions:hover { text-decoration: underline; }
+    .period-directions:hover .period-directions-label { text-decoration: underline; }
     .period-directions:focus-visible {
       outline: 2px solid var(--leo-blue);
       outline-offset: 3px;
@@ -864,16 +906,19 @@ export function renderCityTodayPage({ city, pack, error }) {
       align-items: center;
       gap: 0.3em;
       padding: 0.35rem 0.55rem;
-      background: var(--leo-gray-light);
-      border-radius: 999px;
+      background: var(--leo-blue-light);
+      color: var(--leo-blue-dark);
+      border-radius: 5pt;
       white-space: nowrap;
     }
     .info-chip .info-symbol { font-size: 1em; }
-    .info-chip-sep { color: var(--muted); }
+    .info-chip-sep { color: var(--leo-blue); opacity: 0.65; }
     .hero-frame {
       position: relative;
       overflow: hidden;
-      border-radius: 14px;
+      --hero-corner-radius: 14px;
+      --hero-badge-corner-radius: calc(var(--hero-corner-radius) * 10 / 14);
+      border-radius: var(--hero-corner-radius);
       background: var(--leo-gray-light);
     }
     .hero {
@@ -893,7 +938,8 @@ export function renderCityTodayPage({ city, pack, error }) {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 0.85rem;
+      --hero-overlay-inset: 0.85rem;
+      padding: var(--hero-overlay-inset);
       background: linear-gradient(
         180deg,
         rgba(0, 0, 0, 0.35) 0%,
@@ -910,7 +956,8 @@ export function renderCityTodayPage({ city, pack, error }) {
     }
     .hero-badge {
       padding: 0.35rem 0.65rem;
-      border-radius: 999px;
+      border: 0.1pt solid var(--leo-blue-mid);
+      border-radius: var(--hero-badge-corner-radius);
       font-family: var(--font-body);
       font-size: 0.78rem;
       font-weight: 600;
@@ -920,16 +967,32 @@ export function renderCityTodayPage({ city, pack, error }) {
       pointer-events: none;
     }
     .hero-badge--period {
-      background: var(--leo-blue);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+      background: color-mix(in srgb, var(--leo-blue-dark) 80%, transparent);
+      color: var(--leo-blue-paper);
+      text-align: left;
+    }
+    .hero-badge-period-name {
+      font-size: 0.975rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+    .hero-badge-weather {
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1;
     }
     .hero-title {
       margin: 0;
       margin-top: auto;
       font-family: var(--font-display);
       font-size: clamp(1.25rem, 3.5vw, 1.65rem);
-      font-weight: 400;
+      font-weight: 700;
       line-height: 1.15;
-      color: #fff;
+      color: var(--leo-blue-paper);
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
     }
     .hero-credit {
@@ -1047,7 +1110,7 @@ export function renderCityTodayPage({ city, pack, error }) {
   <main>
     <header class="today-lede">
       <p class="today-eyebrow">${escapeHtml(eyebrow)}</p>
-      <h1>What to Do in ${escapeHtml(cityName)} <span class="today-accent">Today</span></h1>
+      <h1>What to Do<span class="today-lede-line2">in ${escapeHtml(cityName)} Today</span></h1>
       <p class="intro">${escapeHtml(intro)}</p>
     </header>
     ${renderDaySummaryBand(daySummary, periods)}
