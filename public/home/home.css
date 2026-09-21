@@ -151,16 +151,16 @@ p {
 
 /* App store base styles live in /site/site.css; hero spacing below.
    Height targets 2/3 of the viewport, but clamps so the full-bleed crop
-   never strays more than 30% from the source photo's native 3:2 (1.5)
-   ratio — i.e. width:height stays within [1.05, 1.95]. Since width is
-   always 100vw, that bounds height to [100vw / 1.95, 100vw / 1.05]. */
+   never strays more than 40% from the source photo's native 3:2 (1.5)
+   ratio — i.e. width:height stays within [0.9, 2.1]. Since width is
+   always 100vw, that bounds height to [100vw / 2.1, 100vw / 0.9]. */
 .hero {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  height: clamp(51.2821vw, calc(100vh * 2 / 3), 95.2381vw);
-  height: clamp(51.2821vw, calc(100svh * 2 / 3), 95.2381vw);
+  height: clamp(47.619vw, calc(100vh * 2 / 3), 111.1111vw);
+  height: clamp(47.619vw, calc(100svh * 2 / 3), 111.1111vw);
   padding-top: 0;
   overflow: hidden;
   background: var(--cream);

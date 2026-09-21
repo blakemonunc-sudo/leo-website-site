@@ -23,7 +23,7 @@ export function renderHomePage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=hero-ratio-clamp-3">
+  <link rel="stylesheet" href="/home/home.css?v=hero-ratio-clamp-4">
   ${siteChromeAssetTags()}
   ${leoMagicAssetTags()}
   ${navAssetTags()}
