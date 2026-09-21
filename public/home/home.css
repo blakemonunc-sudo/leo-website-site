@@ -176,15 +176,30 @@ p {
   user-select: none;
 }
 
+/* Scrim reserves a legible zone for the copy instead of relying on text-shadow. */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(254, 252, 246, 0.94) 0%,
+    rgba(254, 252, 246, 0.72) 34%,
+    rgba(254, 252, 246, 0) 62%
+  );
+}
+
 .hero-band--intro {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-end;
   text-align: left;
+  max-width: min(46ch, 52%);
   padding: calc(var(--nav-h) + clamp(24px, 4vw, 40px)) var(--page-gutter)
     clamp(28px, 4vw, 48px);
   background: transparent;
@@ -195,7 +210,6 @@ p {
   max-width: 14ch;
   line-height: 1.05;
   color: var(--ink);
-  text-shadow: 0 1px 2px rgba(254, 252, 246, 0.55);
 }
 
 .hero-sub {
@@ -205,7 +219,6 @@ p {
   margin-top: 16px;
   max-width: 28ch;
   line-height: 1.35;
-  text-shadow: 0 1px 2px rgba(254, 252, 246, 0.55);
 }
 
 .hero-band--intro .app-store {
@@ -1071,6 +1084,19 @@ p {
 @media (max-width: 800px) {
   :root {
     --feature-visual-ratio: 6 / 3;
+  }
+
+  .hero-scrim {
+    background: linear-gradient(
+      to top,
+      rgba(254, 252, 246, 0.95) 0%,
+      rgba(254, 252, 246, 0.8) 38%,
+      rgba(254, 252, 246, 0) 70%
+    );
+  }
+
+  .hero-band--intro {
+    max-width: none;
   }
 
   .feature,

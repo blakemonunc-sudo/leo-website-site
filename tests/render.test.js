@@ -806,6 +806,7 @@ test("renderHomePage keeps marketing hero without day itinerary", () => {
     html,
     /class="hero-media" src="\/img\/04c04a64-71f7-486d-b5c9-953b662b2600"/
   );
+  assert.match(html, /class="hero-scrim"/);
   assert.match(html, /The Spontaneous<br>Travel Guide/);
   assert.match(html, /Unfollow your itinerary/);
   assert.match(html, /Where Leo Travels/);

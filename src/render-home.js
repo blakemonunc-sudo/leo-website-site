@@ -23,7 +23,7 @@ export function renderHomePage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=hero-bleed-2">
+  <link rel="stylesheet" href="/home/home.css?v=hero-scrim-1">
   ${siteChromeAssetTags()}
   ${leoMagicAssetTags()}
   ${navAssetTags()}
@@ -33,6 +33,7 @@ export function renderHomePage() {
 
   <section class="hero" id="hero" aria-label="Leo">
     ${heroMedia}
+    <div class="hero-scrim" aria-hidden="true"></div>
     <div class="hero-band hero-band--intro">
       <h1 class="hero-title">The Spontaneous<br>Travel Guide</h1>
       <p class="hero-sub">Unfollow your itinerary.<br>Follow the rhythms of your day.</p>
