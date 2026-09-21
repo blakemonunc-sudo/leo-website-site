@@ -807,7 +807,10 @@ test("renderHomePage keeps marketing hero without day itinerary", () => {
     /class="hero-media" src="\/img\/04c04a64-71f7-486d-b5c9-953b662b2600"/
   );
   assert.match(html, /class="hero-scrim"/);
-  assert.match(html, /The Spontaneous<br>Travel Guide/);
+  assert.match(html, /Spontaneous<br>Travel Guide/);
+  assert.doesNotMatch(html, /The Spontaneous<br>Travel Guide/);
+  const hero = html.match(/<section class="hero"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(hero, /app-store/);
   assert.match(html, /Unfollow your itinerary/);
   assert.match(html, /Where Leo Travels/);
   assert.match(html, /\/what-to-do-in-tokyo-today/);

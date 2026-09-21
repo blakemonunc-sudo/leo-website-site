@@ -223,10 +223,6 @@ p {
   line-height: 1.35;
 }
 
-.hero-band--intro .app-store {
-  margin-top: 22px;
-}
-
 /* —— Features —— */
 .feature {
   display: flex;

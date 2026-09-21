@@ -23,7 +23,7 @@ export function renderHomePage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=hero-ratio-clamp-2">
+  <link rel="stylesheet" href="/home/home.css?v=hero-ratio-clamp-3">
   ${siteChromeAssetTags()}
   ${leoMagicAssetTags()}
   ${navAssetTags()}
@@ -35,15 +35,8 @@ export function renderHomePage() {
     ${heroMedia}
     <div class="hero-scrim" aria-hidden="true"></div>
     <div class="hero-band hero-band--intro">
-      <h1 class="hero-title">The Spontaneous<br>Travel Guide</h1>
+      <h1 class="hero-title">Spontaneous<br>Travel Guide</h1>
       <p class="hero-sub">Unfollow your itinerary.<br>Follow the rhythms of your day.</p>
-      <a class="app-store" href="#" aria-label="Download on the App Store">
-        <span class="app-store-icon" aria-hidden="true"></span>
-        <span class="app-store-text">
-          <span class="app-store-eyebrow">Download on the</span>
-          <span class="app-store-name">App Store</span>
-        </span>
-      </a>
     </div>
   </section>
 
