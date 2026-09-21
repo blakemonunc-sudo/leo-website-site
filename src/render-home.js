@@ -1,20 +1,29 @@
 import { cityTodayPath } from "../config/cities.js";
+import { buildHeroProxyPath } from "./images.js";
 import { leoMagicAssetTags, renderLeoMagicIndicator } from "./leo-magic.js";
 import { navAssetTags, renderSiteNav } from "./render-nav.js";
 import { renderSiteClosing, siteChromeAssetTags } from "./render-site-chrome.js";
 
+/** Homepage hero background (Cloudflare Images). */
+const HOME_HERO_IMAGE = "cfimg://04c04a64-71f7-486d-b5c9-953b662b2600";
+
 /**
  * Marketing homepage (wireframe 2a).
- * Hero: intro band. Styles: /home/home.css · Interactivity: /home/home.js
+ * Hero: full-bleed intro at 2/3 viewport. Styles: /home/home.css · Interactivity: /home/home.js
  */
 export function renderHomePage() {
+  const heroSrc = buildHeroProxyPath(HOME_HERO_IMAGE);
+  const heroMedia = heroSrc
+    ? `<img class="hero-media" src="${heroSrc}" alt="" width="1920" height="1280" fetchpriority="high" decoding="async">`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leo — The Spontaneous Travel Guide</title>
-  <link rel="stylesheet" href="/home/home.css?v=map-cluster-1">
+  <link rel="stylesheet" href="/home/home.css?v=hero-bleed-1">
   ${siteChromeAssetTags()}
   ${leoMagicAssetTags()}
   ${navAssetTags()}
@@ -23,6 +32,7 @@ export function renderHomePage() {
   ${renderSiteNav({ variant: "home" })}
 
   <section class="hero" id="hero" aria-label="Leo">
+    ${heroMedia}
     <div class="hero-band hero-band--intro">
       <h1 class="hero-title">The Spontaneous<br>Travel Guide</h1>
       <p class="hero-sub">Unfollow your itinerary.<br>Follow the rhythms of your day.</p>
