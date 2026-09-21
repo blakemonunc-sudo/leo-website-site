@@ -1093,6 +1093,7 @@ p {
 
   .hero {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: var(--hero-h) auto;
     height: auto;
     overflow: visible;
@@ -1101,8 +1102,11 @@ p {
   .hero-stage {
     position: relative;
     grid-row: 1;
+    grid-column: 1;
     inset: auto;
+    width: 100%;
     height: var(--hero-h);
+    min-width: 0;
   }
 
   .hero-scrim {
@@ -1117,22 +1121,28 @@ p {
   /* Promote title + sub into the hero grid so the sub can sit under the photo. */
   .hero-band--intro {
     display: contents;
-    max-width: none;
   }
 
   .hero-title {
     grid-row: 1;
+    grid-column: 1;
     align-self: end;
+    justify-self: stretch;
     z-index: 2;
+    width: 100%;
     max-width: none;
+    box-sizing: border-box;
     padding: calc(var(--nav-h) + clamp(24px, 4vw, 40px)) var(--page-gutter)
       clamp(28px, 4vw, 48px);
   }
 
   .hero-sub {
     grid-row: 2;
-    margin-top: 0;
+    grid-column: 1;
+    width: 100%;
     max-width: none;
+    margin-top: 0;
+    box-sizing: border-box;
     padding: 20px var(--page-gutter) 28px;
   }
 
