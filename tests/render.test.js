@@ -802,6 +802,7 @@ test("renderHomePage keeps marketing hero without day itinerary", () => {
   const html = renderHomePage();
 
   assert.match(html, /hero-band--intro/);
+  assert.match(html, /class="hero-stage"/);
   assert.match(
     html,
     /class="hero-media" src="\/img\/04c04a64-71f7-486d-b5c9-953b662b2600"/

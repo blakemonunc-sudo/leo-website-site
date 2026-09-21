@@ -151,19 +151,27 @@ p {
 
 /* App store base styles live in /site/site.css; hero spacing below.
    Height targets 2/3 of the viewport, but clamps so the full-bleed crop
-   never strays more than 40% from the source photo's native 3:2 (1.5)
-   ratio — i.e. width:height stays within [0.9, 2.1]. Since width is
-   always 100vw, that bounds height to [100vw / 2.1, 100vw / 0.9]. */
+   never strays more than 35% from the source photo's native 3:2 (1.5)
+   ratio — i.e. width:height stays within [0.975, 2.025]. Since width is
+   always 100vw, that bounds height to [100vw / 2.025, 100vw / 0.975]. */
 .hero {
+  --hero-h: clamp(49.3827vw, calc(100vh * 2 / 3), 102.5641vw);
+  --hero-h: clamp(49.3827vw, calc(100svh * 2 / 3), 102.5641vw);
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  height: clamp(47.619vw, calc(100vh * 2 / 3), 111.1111vw);
-  height: clamp(47.619vw, calc(100svh * 2 / 3), 111.1111vw);
+  height: var(--hero-h);
   padding-top: 0;
   overflow: hidden;
   background: var(--cream);
+}
+
+.hero-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
 }
 
 .hero-media {
@@ -173,7 +181,6 @@ p {
   height: 100%;
   object-fit: cover;
   object-position: right center;
-  z-index: 0;
   pointer-events: none;
   user-select: none;
 }
@@ -1084,6 +1091,20 @@ p {
     --feature-visual-ratio: 6 / 3;
   }
 
+  .hero {
+    display: grid;
+    grid-template-rows: var(--hero-h) auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .hero-stage {
+    position: relative;
+    grid-row: 1;
+    inset: auto;
+    height: var(--hero-h);
+  }
+
   .hero-scrim {
     background: linear-gradient(
       to top,
@@ -1093,8 +1114,26 @@ p {
     );
   }
 
+  /* Promote title + sub into the hero grid so the sub can sit under the photo. */
   .hero-band--intro {
+    display: contents;
     max-width: none;
+  }
+
+  .hero-title {
+    grid-row: 1;
+    align-self: end;
+    z-index: 2;
+    max-width: none;
+    padding: calc(var(--nav-h) + clamp(24px, 4vw, 40px)) var(--page-gutter)
+      clamp(28px, 4vw, 48px);
+  }
+
+  .hero-sub {
+    grid-row: 2;
+    margin-top: 0;
+    max-width: none;
+    padding: 20px var(--page-gutter) 28px;
   }
 
   .feature,
