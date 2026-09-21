@@ -1,4 +1,4 @@
-import { allNavCities, cityTodayPath } from "../config/cities.js";
+import { publishedCities, cityTodayPath } from "../config/cities.js";
 
 const APP_STORE_URL =
   "https://apps.apple.com/us/app/leo-spontaneous-travel-guide/id6755015197";
@@ -11,7 +11,7 @@ const ABOUT_LINKS = [
   { label: "Privacy & Terms" },
 ];
 
-const NAV_ASSET_VERSION = "nav-10";
+const NAV_ASSET_VERSION = "nav-11";
 
 function renderNavTextItem(label, { className = "leo-nav-link" } = {}) {
   return `<span class="${escapeHtml(className)} leo-nav-link--soon">${escapeHtml(label)}</span>`;
@@ -172,7 +172,7 @@ export function renderSiteNav({
   cities = null,
   periodLinks = null,
 } = {}) {
-  const navCities = cities ?? allNavCities();
+  const navCities = cities ?? publishedCities;
   const isToday = variant === "today";
   const wordmarkTop = renderWordmark({ variant, city, compact: false });
   const wordmarkCompact = renderWordmark({ variant, city, compact: true });

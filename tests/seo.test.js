@@ -16,14 +16,14 @@ test("buildTodayMetaDescription templates city name", () => {
   );
 });
 
-test("formatFreshnessEyebrow includes city-local date, time, and timezone", () => {
+test("formatFreshnessEyebrow includes city-local date", () => {
   assert.equal(
     formatFreshnessEyebrow("2026-07-07T15:30:00.000Z", "Asia/Tokyo", "Tokyo"),
-    "TOKYO · Updated Jul 8, 2026 at 12:30 AM JST"
+    "TOKYO · Updated Jul 8, 2026"
   );
   assert.equal(
     formatFreshnessEyebrow("2026-08-10T15:00:00.000Z", "Europe/Paris", "Paris"),
-    "PARIS · Updated Aug 10, 2026 at 5:00 PM CEST"
+    "PARIS · Updated Aug 10, 2026"
   );
 });
 

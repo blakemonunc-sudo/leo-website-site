@@ -40,14 +40,8 @@ function redirectPermanent(location) {
   });
 }
 
-async function handleHomePage(env) {
-  const packResults = await fetchAllPublishedPacks(env);
-  for (const result of packResults) {
-    if (result.error) {
-      console.error(`[SITE] home ${result.city.webCityId} pack error:`, result.error);
-    }
-  }
-  return new Response(renderHomePage(packResults), { status: 200, headers: HTML_HEADERS });
+async function handleHomePage() {
+  return new Response(renderHomePage(), { status: 200, headers: HTML_HEADERS });
 }
 
 async function handleCityTodayPage(env, webCityId, origin) {
@@ -92,7 +86,7 @@ export default {
       if (request.method !== "GET") {
         return new Response("Method not allowed", { status: 405 });
       }
-      return handleHomePage(env);
+      return handleHomePage();
     }
 
     if (pathname === "/today") {

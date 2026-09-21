@@ -24,14 +24,88 @@ import {
   periodHasActivity,
   renderInfoSection,
   resolveGpCategoryDisplayName,
+  resolvePeriodDirections,
 } from "../src/render-today.js";
-import {
-  activityBandTitle,
-  buildHeroPeriods,
-  renderHomePage,
-} from "../src/render-home.js";
+import { renderHomePage } from "../src/render-home.js";
 import { parseCfImageRef, buildDeliveryUrl, buildHeroProxyPath, isValidCfImageId } from "../src/images.js";
 import { cityTodayPath, parseCityTodayPath } from "../config/cities.js";
+
+test("resolvePeriodDirections builds Maps and App Store links by activity type", () => {
+  assert.deepEqual(
+    resolvePeriodDirections({
+      type: "sight",
+      title: "Shinjuku Gyoen",
+      publicPlacesId: "ChIJ5SZO9c2LGGARoNeDVUxRoAM",
+    }),
+    {
+      label: "Directions",
+      href: "https://www.google.com/maps/search/?api=1&query_place_id=ChIJ5SZO9c2LGGARoNeDVUxRoAM&query=Shinjuku+Gyoen",
+    }
+  );
+  assert.deepEqual(
+    resolvePeriodDirections({
+      type: "foodDrink",
+      title: "Afuri",
+      placeId: "ChIJfood1",
+    }),
+    {
+      label: "Directions",
+      href: "https://www.google.com/maps/search/?api=1&query_place_id=ChIJfood1&query=Afuri",
+    }
+  );
+  assert.deepEqual(
+    resolvePeriodDirections({
+      type: "sideQuest",
+      pointGenericName: "Stations",
+    }),
+    {
+      label: "Find the Nearest Stations",
+      href: APP_STORE_URL,
+    }
+  );
+  assert.equal(resolvePeriodDirections({ type: "sight", title: "No ID" }), null);
+  assert.equal(resolvePeriodDirections({ type: "foodDrink", title: "No ID" }), null);
+  assert.deepEqual(resolvePeriodDirections({ type: "sideQuest" }), {
+    label: "Find the Nearest",
+    href: APP_STORE_URL,
+  });
+});
+
+test("renderCityTodayPage omits Directions when sight/food lack a place ID", () => {
+  const html = renderCityTodayPage({
+    city: { webCityId: "tokyo", name: "Tokyo", timezone: "Asia/Tokyo" },
+    origin: "https://leo.example.com",
+    pack: {
+      localDate: "2026-07-07",
+      generatedAt: "2026-07-07T15:30:00.000Z",
+      periods: [
+        {
+          index: 1,
+          label: "Clear · Morning",
+          activity: {
+            type: "sight",
+            title: "Park Without Places ID",
+            webDescription: "A park.",
+          },
+        },
+        {
+          index: 2,
+          label: "Clear · Lunch",
+          activity: {
+            type: "foodDrink",
+            title: "Cafe Without Places ID",
+            description: "A cafe.",
+          },
+        },
+      ],
+    },
+    error: null,
+  });
+
+  assert.doesNotMatch(html, /<a class="period-directions"/);
+  assert.doesNotMatch(html, /google\.com\/maps\/search/);
+  assert.doesNotMatch(html, /period-directions-label">Directions</);
+});
 
 test("buildDaySummary derives dominant condition and temp range", () => {
   const summary = buildDaySummary([
@@ -156,35 +230,6 @@ test("cityTodayPath and parseCityTodayPath round-trip", () => {
   assert.equal(parseCityTodayPath("/what-to-do-in-tokyo-today"), "tokyo");
   assert.equal(parseCityTodayPath("/what-to-do-in-paris-today"), "paris");
   assert.equal(parseCityTodayPath("/today"), null);
-});
-
-test("activityBandTitle formats by activity type", () => {
-  assert.equal(
-    activityBandTitle({
-      type: "sight",
-      title: "Shinjuku Gyoen",
-      vibeName: "Unwind",
-      connector: "at",
-    }),
-    "Shinjuku Gyoen"
-  );
-  assert.equal(
-    activityBandTitle({
-      type: "sideQuest",
-      generic: "Follow the Yamanote Line",
-      teaser: "Ride somewhere else",
-      title: "Ueno Station",
-    }),
-    "Side Quest!"
-  );
-  assert.equal(
-    activityBandTitle({
-      type: "foodDrink",
-      teaserAction: "try kaiseki, a traditional Japanese multi-course meal",
-      category: "Kaiseki",
-    }),
-    "Kaiseki"
-  );
 });
 
 test("capitalizeSentenceStart only uppercases first letter", () => {
@@ -460,6 +505,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             durationHours: 2,
             setting: "Mixed Inside & Outside",
             website: "https://www.env.go.jp/garden/shinjukugyoen/",
+            publicPlacesId: "ChIJ5SZO9c2LGGARoNeDVUxRoAM",
             latitude: 35.6852,
             longitude: 139.71,
             heroImage: `cfimg://${imageId}`,
@@ -480,6 +526,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             priceRange: "¥¥",
             durationHours: 0.5,
             description: "Yuzu shio ramen near Shinjuku.",
+            placeId: "ChIJfoodPlaceIdAfuriLumine01",
           },
         },
         {
@@ -498,6 +545,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
             setting: "Outside",
             whyGo: "Ride somewhere unexpected.",
             whyTeaser: "You'll be partly inside in hot weather.",
+            pointGenericName: "Stations",
           },
         },
       ],
@@ -506,7 +554,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   });
 
   assert.match(html, /What to Do<span class="today-lede-line2">in Tokyo Today<\/span>/);
-  assert.match(html, /today-eyebrow">TOKYO · Updated Jul 8, 2026 at 12:30 AM JST</);
+  assert.match(html, /today-eyebrow">TOKYO · Updated Jul 8, 2026</);
   assert.match(html, /meta name="description" content="What to do in Tokyo today/);
   assert.match(
     html,
@@ -561,6 +609,15 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Stroll the lawns and glasshouse/);
   assert.match(html, /Open Leo for more sights nearby\./);
   assert.match(html, /period-directions[\s\S]*?Directions[\s\S]*?→/);
+  assert.match(
+    html,
+    /href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query_place_id=ChIJ5SZO9c2LGGARoNeDVUxRoAM&amp;query=Shinjuku\+Gyoen"/
+  );
+  assert.match(
+    html,
+    /href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query_place_id=ChIJfoodPlaceIdAfuriLumine01&amp;query=Afuri\+Lumine"/
+  );
+  assert.match(html, /period-directions-label">Find the Nearest Stations</);
   assert.equal((html.match(/class="period-divider"/g) ?? []).length, 2);
   assert.match(
     html,
@@ -574,7 +631,11 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /period-action--download/);
   assert.doesNotMatch(html, /Download the app[\s\S]*?period-actions/);
   assert.match(html, new RegExp(APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(html, /<button type="button" class="period-directions"/);
+  assert.match(html, /<a class="period-directions" href="/);
+  assert.doesNotMatch(html, /<button type="button" class="period-directions"/);
+  assert.doesNotMatch(html, /"geo"/);
+  assert.doesNotMatch(html, /"latitude"/);
+  assert.doesNotMatch(html, /"longitude"/);
   assert.match(html, /today-mobile-nudge/);
   assert.match(html, /section class="final-cta"/);
   assert.match(html, /Unplan your next trip, with Leo/);
@@ -589,7 +650,7 @@ test("renderCityTodayPage uses new section layout and same-origin image proxy", 
   assert.doesNotMatch(html, /Explore in the app/);
   assert.match(html, /today-mobile-nudge-copy">Get directions &amp; personalized plans in Leo</);
   assert.doesNotMatch(html, /Visit website/);
-  assert.doesNotMatch(html, /maps\.google\.com/);
+  assert.match(html, /google\.com\/maps\/search/);
   assert.match(html, new RegExp(`/img/${imageId}`));
   assert.match(html, /Photo by Leo/);
   assert.match(html, /hero-credit-btn/);
@@ -737,277 +798,20 @@ test("buildDeliveryUrl keeps hash server-side", () => {
   assert.equal(parseCfImageRef("cfimg://img-id"), "img-id");
 });
 
-test("buildHeroPeriods maps Tokyo pack into period bands with avg temp + description", () => {
-  const imageId = "ce236d9a-9a78-43d7-0e65-31affc694c00";
-  const periods = buildHeroPeriods({
-    periods: [
-      {
-        index: 2,
-        label: "Clear · Lunch",
-        start: "12:00",
-        tempMinC: 30,
-        tempMaxC: 32,
-        activity: {
-          type: "foodDrink",
-          title: "Afuri Lumine",
-          category: "Ramen",
-          heroImage: `cfimg://${imageId}`,
-          teaserAction: "try ramen, a noodle soup with a rich broth and topping",
-        },
-      },
-      {
-        index: 1,
-        label: "Clear · Morning",
-        start: "09:00",
-        tempMinC: 28,
-        tempMaxC: 30,
-        activity: {
-          type: "sight",
-          title: "Shinjuku Gyoen",
-          subtitle: "144-acre Garden",
-          heroImage: `cfimg://${imageId}`,
-          intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
-          whyTeaser: "You'll be outside in pleasant weather.",
-        },
-      },
-      {
-        index: 3,
-        label: "Cloudy · Afternoon",
-        start: "13:00",
-        tempMinC: 24,
-        tempMaxC: 26,
-        activity: {
-          type: "sideQuest",
-          title: "Shinjuku Station",
-          challengeTitle: "Yamanote Line Roulette",
-          generic: "Follow the Yamanote Line",
-          teaser: "Ride the JR Yamanote Line to a random neighborhood",
-          teaserLower: "ride the JR Yamanote Line to a random neighborhood",
-        },
-      },
-    ],
-  });
-
-  assert.equal(periods.length, 3);
-  assert.equal(periods[0].periodName, "Morning");
-  assert.equal(periods[0].title, "Shinjuku Gyoen");
-  assert.equal(periods[0].subtitle, "☀️ 84°F | Morning");
-  assert.equal(periods[0].callingType, "places");
-  assert.equal(periods[0].imageSrc, `/img/${imageId}`);
-  assert.equal(periods[0].symbol, "☀️");
-  assert.equal(periods[0].avgTempLabel, "84°F");
-  assert.equal(periods[0].weatherLine, "☀️ 84°F");
-  assert.equal(periods[0].metaLine, "Shinjuku Gyoen · ☀️ 84°F | Morning");
-  assert.match(periods[0].description, /Unwind at Shinjuku Gyoen/);
-
-  assert.equal(periods[1].periodName, "Lunch");
-  assert.equal(periods[1].title, "Ramen");
-  assert.equal(periods[1].subtitle, "☀️ 88°F | Lunch");
-  assert.equal(periods[1].callingType, "foodDrinks");
-  assert.equal(periods[1].avgTempLabel, "88°F");
-  assert.equal(periods[1].weatherLine, "☀️ 88°F");
-  assert.equal(periods[1].metaLine, "Ramen · ☀️ 88°F | Lunch");
-  assert.match(periods[1].description, /For lunch try ramen/);
-
-  assert.equal(periods[2].periodName, "Afternoon");
-  assert.equal(periods[2].title, "Side Quest!");
-  assert.equal(periods[2].subtitle, "☁️ 77°F | Afternoon");
-  assert.equal(periods[2].callingType, "games");
-  assert.equal(periods[2].avgTempLabel, "77°F");
-  assert.equal(periods[2].weatherLine, "☁️ 77°F");
-  assert.equal(periods[2].metaLine, "Side Quest! · ☁️ 77°F | Afternoon");
-  assert.match(periods[2].description, /Follow the Yamanote Line|Ride the JR Yamanote Line/);
-});
-
-test("buildHeroPeriods special-cases Coffee by start hour", () => {
-  const periods = buildHeroPeriods({
-    periods: [
-      {
-        index: 1,
-        label: "Clear · Coffee",
-        start: "10:00",
-        tempMinC: 20,
-        tempMaxC: 22,
-        activity: { type: "foodDrink", title: "Cafe", category: "Cafe" },
-      },
-      {
-        index: 2,
-        label: "Clear · Coffee",
-        start: "14:00",
-        tempMinC: 24,
-        tempMaxC: 26,
-        activity: { type: "foodDrink", title: "Cafe", category: "Cafe" },
-      },
-    ],
-  });
-
-  assert.equal(periods[0].periodName, "Morning Coffee");
-  assert.equal(periods[0].subtitle, "☀️ 70°F | Morning Coffee");
-  assert.equal(periods[1].periodName, "Afternoon Coffee");
-  assert.equal(periods[1].subtitle, "☀️ 77°F | Afternoon Coffee");
-});
-
-test("buildHeroPeriods omits day periods with no activity", () => {
-  const periods = buildHeroPeriods({
-    periods: [
-      {
-        index: 1,
-        label: "Clear · Morning",
-        start: "09:00",
-        tempMinC: 20,
-        tempMaxC: 22,
-        activity: { type: "sight", title: "Shinjuku Gyoen", intro: "Unwind at Shinjuku Gyoen." },
-      },
-      {
-        index: 5,
-        label: "Partly Cloudy · Night",
-        start: "21:00",
-        tempMinC: 24,
-        tempMaxC: 25,
-      },
-    ],
-  });
-  assert.equal(periods.length, 1);
-  assert.equal(periods[0].title, "Shinjuku Gyoen");
-  assert.doesNotMatch(periods.map((p) => p.periodName).join(" "), /Night/);
-});
-
-test("buildHeroPeriods falls back when pack has no periods", () => {
-  const periods = buildHeroPeriods(null);
-  assert.ok(periods.length >= 4);
-  assert.equal(periods[0].title, "Shinjuku Gyoen");
-  assert.equal(periods[0].subtitle, "☀️ 84°F | Morning");
-  assert.match(periods[0].imageSrc, /^\/img\//);
-  assert.match(periods[0].metaLine, /Morning/);
-  assert.ok(periods[0].avgTempLabel.endsWith("°F"));
-});
-
-test("renderHomePage uses expandable period bands, not carousel", () => {
-  const imageId = "ce236d9a-9a78-43d7-0e65-31affc694c00";
-  const html = renderHomePage({
-    periods: [
-      {
-        index: 1,
-        label: "Clear · Morning",
-        start: "09:00",
-        tempMinC: 28,
-        tempMaxC: 30,
-        activity: {
-          type: "sight",
-          title: "Shinjuku Gyoen",
-          subtitle: "144-acre Garden",
-          heroImage: `cfimg://${imageId}`,
-          intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
-          whyTeaser: "You'll be outside in pleasant weather.",
-        },
-      },
-      {
-        index: 2,
-        label: "Clear · Lunch",
-        start: "12:00",
-        tempMinC: 30,
-        tempMaxC: 32,
-        activity: {
-          type: "foodDrink",
-          title: "Afuri Lumine",
-          category: "Ramen",
-          heroImage: `cfimg://${imageId}`,
-          teaserAction: "try ramen",
-        },
-      },
-    ],
-  });
+test("renderHomePage keeps marketing hero without day itinerary", () => {
+  const html = renderHomePage();
 
   assert.match(html, /hero-band--intro/);
-  assert.match(html, /hero-band--period/);
-  assert.match(html, /hero-periods/);
-  assert.match(html, /data-type="places"/);
-  assert.match(html, /data-type="foodDrinks"/);
-  assert.match(html, /band-meta/);
-  assert.match(html, /band-meta-period/);
-  assert.match(html, /band-meta-weather/);
-  assert.match(html, /band-toggle/);
-  assert.match(html, /band-inner/);
-  assert.match(html, /band-meta-period">Shinjuku Gyoen</);
-  assert.match(html, /band-meta-weather">☀️ 84°F \| Morning</);
-  assert.match(html, /band-meta-period">Ramen</);
-  assert.match(html, /band-meta-weather">☀️ 88°F \| Lunch</);
-  assert.doesNotMatch(html, /time-meridiem/);
-  assert.match(html, /band-description/);
-  assert.match(html, /Unwind at Shinjuku Gyoen/);
-  assert.match(html, /calling-card/);
-  assert.match(html, /calling-card-title">Shinjuku Gyoen</);
-  assert.match(html, /calling-card-title">Ramen</);
-  assert.match(html, new RegExp(`/img/${imageId}`));
-  assert.match(html, /\/what-to-do-in-tokyo-today/);
-  assert.doesNotMatch(html, /hero-carousel/);
-  assert.doesNotMatch(html, /hero-track/);
-  assert.doesNotMatch(html, /hero-slide/);
-  assert.doesNotMatch(html, /hero-drawer/);
-  assert.doesNotMatch(html, /period-tile/);
-  assert.doesNotMatch(html, /data-interval/);
-  assert.doesNotMatch(html, /href="\/today"/);
-});
-
-test("renderHomePage includes city switcher for published cities", () => {
-  const html = renderHomePage([
-    {
-      city: { webCityId: "tokyo", name: "Tokyo" },
-      pack: {
-        periods: [
-          {
-            index: 1,
-            label: "Clear · Morning",
-            tempMinC: 28,
-            tempMaxC: 30,
-            activity: {
-              type: "sight",
-              title: "Shinjuku Gyoen",
-              vibeName: "Unwind",
-              connector: "at",
-              subtitle: "144-acre Garden",
-              intro: "Unwind at Shinjuku Gyoen, a 144-acre campus of pristine gardens.",
-            },
-          },
-        ],
-      },
-      error: null,
-    },
-    {
-      city: { webCityId: "paris", name: "Paris" },
-      pack: {
-        periods: [
-          {
-            index: 1,
-            label: "Cloudy · Morning",
-            tempMinC: 18,
-            tempMaxC: 20,
-            activity: {
-              type: "sight",
-              title: "Jardin du Luxembourg",
-              vibeName: "Stroll",
-              connector: "through",
-              subtitle: "Formal Gardens",
-              intro: "Stroll through Jardin du Luxembourg, formal gardens.",
-            },
-          },
-        ],
-      },
-      error: null,
-    },
-  ]);
-
-  assert.match(html, /hero-city-label">Today:</);
-  assert.match(html, /hero-city-switcher/);
-  assert.match(html, /hero-city-btn/);
-  assert.match(html, /data-city="tokyo"/);
-  assert.match(html, /data-city="paris"/);
-  assert.doesNotMatch(html, /data-city="nyc"/);
-  assert.match(html, /aria-selected="true"[^>]*>Tokyo</);
-  assert.match(html, /hero-periods"[^>]*data-city="tokyo"/);
-  assert.match(html, /Shinjuku Gyoen/);
-  assert.match(html, /Jardin du Luxembourg/);
-  assert.match(html, /id="hero-periods-paris"[^>]*hidden/);
+  assert.match(html, /The Spontaneous<br>Travel Guide/);
+  assert.match(html, /Unfollow your itinerary/);
+  assert.match(html, /Where Leo Travels/);
   assert.match(html, /\/what-to-do-in-tokyo-today/);
   assert.match(html, /\/what-to-do-in-paris-today/);
+  assert.doesNotMatch(html, /hero-city-switcher/);
+  assert.doesNotMatch(html, /hero-city-label/);
+  assert.doesNotMatch(html, /hero-periods/);
+  assert.doesNotMatch(html, /hero-band--period/);
+  assert.doesNotMatch(html, /hero-cta-band/);
+  assert.doesNotMatch(html, /hero-carousel/);
+  assert.doesNotMatch(html, /href="\/today"/);
 });

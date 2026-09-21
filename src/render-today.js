@@ -328,12 +328,51 @@ function renderAppPlug(activity) {
   return `<div class="app-plug"><p class="app-plug-text">${escapeHtml(plug)}</p></div>`;
 }
 
-function renderPeriodDirections() {
+function buildGoogleMapsPlaceUrl(placeId, queryName = "") {
+  const id = String(placeId ?? "").trim();
+  if (!id) return "";
+  const params = new URLSearchParams({ api: "1", query_place_id: id });
+  const query = String(queryName ?? "").trim();
+  if (query) params.set("query", query);
+  return `https://www.google.com/maps/search/?${params.toString()}`;
+}
+
+export function resolvePeriodDirections(activity) {
+  if (!activity) return null;
+
+  if (activity.type === "sight") {
+    const placeId = activity.publicPlacesId ?? activity.public_places_id;
+    const href = buildGoogleMapsPlaceUrl(placeId, activity.title ?? activity.place);
+    if (!href) return null;
+    return { label: "Directions", href };
+  }
+
+  if (activity.type === "foodDrink") {
+    const placeId = activity.placeId ?? activity.place_id2 ?? activity.place_id;
+    const href = buildGoogleMapsPlaceUrl(placeId, activity.title);
+    if (!href) return null;
+    return { label: "Directions", href };
+  }
+
+  if (activity.type === "sideQuest") {
+    const genericName = String(
+      activity.pointGenericName ?? activity.point_generic_name ?? ""
+    ).trim();
+    const label = genericName ? `Find the Nearest ${genericName}` : "Find the Nearest";
+    return { label, href: APP_STORE_URL };
+  }
+
+  return null;
+}
+
+function renderPeriodDirections(activity) {
+  const directions = resolvePeriodDirections(activity);
+  if (!directions) return "";
   return `<div class="period-actions">
-      <button type="button" class="period-directions">
-        <span class="period-directions-label">Directions</span>
+      <a class="period-directions" href="${escapeHtml(directions.href)}" target="_blank" rel="noopener noreferrer">
+        <span class="period-directions-label">${escapeHtml(directions.label)}</span>
         <span class="period-directions-symbol" aria-hidden="true">→</span>
-      </button>
+      </a>
     </div>`;
 }
 
@@ -626,7 +665,7 @@ function renderPeriod(period, { city, isLast = false } = {}) {
       ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       ${renderAppPlug(activity)}
       ${infoSectionHtml}
-      ${renderPeriodDirections()}
+      ${renderPeriodDirections(activity)}
       ${divider}
     </section>`;
 }

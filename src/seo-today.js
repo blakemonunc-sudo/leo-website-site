@@ -76,16 +76,7 @@ export function formatFreshnessEyebrow(generatedAt, timeZone, cityName) {
     year: "numeric",
   }).format(date);
 
-  const timeLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
-
-  const tzAbbr = getTimezoneAbbreviation(date, timeZone);
-  const tzSuffix = tzAbbr ? ` ${tzAbbr}` : "";
-  return `${cityLabel} · Updated ${dateLabel} at ${timeLabel}${tzSuffix}`;
+  return `${cityLabel} · Updated ${dateLabel}`;
 }
 
 export function isoDateLastmod(isoTimestamp) {
@@ -185,16 +176,6 @@ function buildActivitySchemaEntity(activity, origin) {
 
   const imagePath = buildHeroProxyPath(activity?.heroImage);
   if (imagePath && origin) entity.image = absoluteSiteUrl(origin, imagePath);
-
-  const latitude = Number(activity?.latitude);
-  const longitude = Number(activity?.longitude);
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    entity.geo = {
-      "@type": "GeoCoordinates",
-      latitude,
-      longitude,
-    };
-  }
 
   return entity;
 }
