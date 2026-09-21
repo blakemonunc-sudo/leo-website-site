@@ -1110,15 +1110,7 @@ p {
   }
 
   .hero-scrim {
-    /* Half-height bottom fade — no overlay copy on mobile. */
-    inset: auto 0 0 0;
-    height: 50%;
-    background: linear-gradient(
-      to top,
-      rgba(254, 252, 246, 0.95) 0%,
-      rgba(254, 252, 246, 0.8) 50%,
-      rgba(254, 252, 246, 0) 100%
-    );
+    display: none;
   }
 
   /* Headline + subtitle sit together under the photo. */
